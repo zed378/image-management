@@ -23,6 +23,11 @@ combinations all behave as specified in `docs/API/13-IMAGE-TRANSFORMATION-API.md
    libvips-based Node binding, chosen for speed and broad format support;
    record the decision and the alternatives considered -- e.g. Sharp vs. a
    dedicated Go/Thumbor-style service -- in `MEMORY/DECISIONS.md`).
+   A benchmark spike has already been run against sharp/libvips 8.17.3 --
+   see `docs/PERFORMANCE/02-IMAGE-PROCESSING-PERFORMANCE.md` for the numbers
+   and the method. Read it before choosing; it settles the encoder settings
+   and refutes an assumption about AVIF cost that earlier documents were
+   written on (`ADR-016`).
 2. Stand up the Image Processing Service as its own deployable unit,
    reachable only from the Asset/Image API, never directly from the
    internet.
@@ -30,11 +35,24 @@ combinations all behave as specified in `docs/API/13-IMAGE-TRANSFORMATION-API.md
    only-if-needed) and supported output formats explicitly; reject
    unsupported formats with a specific error at upload validation (P2-02),
    not at transformation time.
+4. Set encoder effort **explicitly** -- AVIF `effort: 1`, WebP `effort: 2`
+   (`ADR-016`). Both libraries default to `effort: 4`, which measured ~10x
+   the CPU cost for at most one kibibyte. This failure mode is silent: the
+   defaults work, they are merely ten times more expensive, so it must be
+   pinned by a test rather than left to review.
+5. Rebuild the benchmark as a permanent harness under `tools/` (the spike it
+   came from was deleted) and re-run it on Linux and on ARM; the effort
+   cliff will hold, the absolute numbers will not.
 
 **Definition of Done**
 - [ ] `docs/IMAGE-PROCESSING/01-SUPPORTED-FORMATS.md` is Final, and the
       supported-format list is enforced by the same validation code used in
       `P2-02`, not duplicated logic that can drift.
+- [ ] A test asserts the configured AVIF and WebP effort values, so a
+      dependency upgrade that changes a library default fails the build
+      rather than decuples the processing bill.
+- [ ] Encoder settings live in the versioned encoder-settings table that
+      participates in `params_hash` (`ADR-014`), not in loose config.
 
 ---
 
@@ -111,8 +129,20 @@ combinations all behave as specified in `docs/API/13-IMAGE-TRANSFORMATION-API.md
 **Steps**
 1. Implement `quality=1..100` per format; document the platform default
    when omitted (recommend 80).
-2. Implement `format=auto`: parse `Accept`, prefer AVIF > WebP > JPEG,
-   always overridable by an explicit `format=` param.
+2. Implement `f=auto` per `docs/IMAGE-DELIVERY-PROTOCOL/12-FORMAT-NEGOTIATION.md`:
+   collapse `Accept` to the three-value bucket, prefer AVIF > WebP > JPEG,
+   always overridable by an explicit `f=`.
+2a. Implement the **size guard** (`ADR-016`): the AVIF generation job
+   compares its output against the cheaper candidate and, when AVIF is not
+   smaller, marks the derivative `avif_not_beneficial` and persists the
+   flipped format decision. Measured motivation: on high-frequency content
+   AVIF came out at 769 KiB against JPEG's 261 KiB. An explicit `f=avif` is
+   exempt.
+2b. Implement the progressive upgrade state machine and its three terminal
+   states (`avif-pending`, `avif-unavailable`, `avif-not-beneficial`),
+   including the short-TTL fallback window, the backoff on repeated pending
+   misses, and the rule that the fallback is never stored under the AVIF
+   key.
 3. Implement transparency handling on conversion: preserve alpha into
    WebP/PNG/AVIF, flatten onto `background` (default white, overridable)
    when converting to JPEG.
@@ -121,6 +151,13 @@ combinations all behave as specified in `docs/API/13-IMAGE-TRANSFORMATION-API.md
 - [ ] A request with `Accept: image/avif,image/webp,*/*` and no explicit
       `format` returns AVIF; with only `image/jpeg` accepted, returns JPEG
       -- both asserted by test.
+- [ ] The `q=auto` per-format quality table is set from a quality sweep
+      against a perceptual metric, not from bytes alone (open question in
+      `docs/PERFORMANCE/02-IMAGE-PROCESSING-PERFORMANCE.md`).
+- [ ] All six conformance cases in
+      `docs/IMAGE-DELIVERY-PROTOCOL/12-FORMAT-NEGOTIATION.md`'s acceptance
+      criteria pass, including that `params_hash` is identical in the cold
+      and warm cases.
 
 ---
 

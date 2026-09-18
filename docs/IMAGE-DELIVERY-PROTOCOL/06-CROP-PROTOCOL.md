@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Define crop as the composition of `fit=cover` (or an explicit `crop=`) with a region-selection parameter (`position=` or `focus=`) -- crop is not a separate primitive from resize, it's resize's region-selection behavior.
+Define crop as the composition of `fit=cover` (or an explicit `rect=`) with a region-selection parameter (`g=`, aliased as `position=`/`focus=`) -- crop is not a separate primitive from resize, it's resize's region-selection behavior.
 
 ## Category Mandate
 
@@ -13,7 +13,7 @@ This is the platform's primary contract, on equal footing with API/ -- not a sub
 ## Key Topics To Specify
 
 - Specify that crop always operates on the *original* image's pixel space before scaling, not after, to avoid compounding rounding error.
-- Define an explicit `crop=x,y,w,h` manual-rectangle mode for consumers that already know exactly which region they want (distinct from the smart `position=`/`focus=` modes).
+- Define an explicit `rect=x,y,w,h` manual-rectangle mode for consumers that already know exactly which region they want (distinct from the smart `g=` (aliases `position=`, `focus=`) modes).
 
 ## Acceptance Criteria
 

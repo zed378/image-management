@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Define an explicit `ratio=` (or `aspect=`) parameter as a convenience over computing `w`/`h` manually, and its precedence rules when combined with explicit dimensions.
+Define an explicit `ar=` parameter (aliases `ratio=`, `aspect=`) as a convenience over computing `w`/`h` manually, and its precedence rules when combined with explicit dimensions.
 
 ## Category Mandate
 
@@ -12,7 +12,7 @@ This is the platform's primary contract, on equal footing with API/ -- not a sub
 
 ## Key Topics To Specify
 
-- `ratio=16:9` combined with only `w=` computes `h` from the ratio (and vice versa); combined with both `w=` and `h=` is either an error (dimensions and ratio disagree) or `ratio` is ignored with a documented precedence -- pick one and state it, don't leave it ambiguous.
+- `ar=16:9` combined with only `w=` computes `h` from the ratio (and vice versa); combined with both `w=` and `h=` is an error (`400 invalid_parameter_combination`) -- decided in `04-TRANSFORMATION-PARAMETERS.md`, not left ambiguous.
 - Define the platform's allowed ratio range/precision to keep the parameter space bounded and cacheable.
 
 ## Acceptance Criteria

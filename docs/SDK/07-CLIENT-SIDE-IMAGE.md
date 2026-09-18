@@ -24,12 +24,12 @@ Thin, typed clients over the public API contract, plus a client-side image compo
     width={800}
     height={600}
     fit="cover"
-    position="center"
+    gravity="center"
 />
 ```
 resolves, client-side, to:
 ```
-https://img.example.com/asset_01HQ...?w=800&h=600&fit=cover&position=center&format=auto
+https://img.example.com/asset_01HQ...?w=800&h=600&fit=cover&g=center&format=auto
 ```
 `format=auto` is added by the component, not the caller -- this is the main
 reason to prefer the component over a hand-built URL.

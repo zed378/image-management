@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Define a per-asset, normalized-coordinate focal point that crop operations bias toward -- strictly more powerful than named `position=`.
+Define a per-asset, normalized-coordinate focal point that crop operations bias toward -- strictly more powerful than named `g=` values.
 
 ## Category Mandate
 

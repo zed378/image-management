@@ -12,7 +12,7 @@ This is the platform's primary contract, on equal footing with API/ -- not a sub
 
 ## Key Topics To Specify
 
-- A fixed corpus of (input image, parameter set) -> (expected output dimensions, format, and a perceptual-hash/checksum tolerance) pairs covering every `fit`/`position`/`focus`/`format` combination named in this category.
+- A fixed corpus of (input image, parameter set) -> (expected output dimensions, format, and a perceptual-hash/checksum tolerance) pairs covering every `fit`/`g`/`format` combination named in this category.
 - Require any future engine adapter (e.g. replacing Sharp) to pass this exact suite before being considered a valid replacement -- link this requirement into `docs/TESTING/04-IMAGE-TRANSFORMATION-TESTING.md`.
 
 ## Acceptance Criteria

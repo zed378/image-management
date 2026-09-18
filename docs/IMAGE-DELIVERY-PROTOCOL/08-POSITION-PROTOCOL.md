@@ -13,7 +13,7 @@ This is the platform's primary contract, on equal footing with API/ -- not a sub
 ## Key Topics To Specify
 
 - Accepted values: `center` (default), `top`, `bottom`, `left`, `right`, and the four corners (`top-left`, etc.).
-- State precisely how `position=` interacts with `fit=cover` (decides which edge/corner is kept when cropping overflow) and that it has no effect under `fit=contain` or `fit=fill`.
+- State precisely how `g=` interacts with `fit=cover` (decides which edge/corner is kept when cropping overflow) and that it has no effect under `fit=contain` or `fit=fill`.
 
 ## Acceptance Criteria
 

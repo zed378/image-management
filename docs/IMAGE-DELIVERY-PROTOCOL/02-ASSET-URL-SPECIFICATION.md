@@ -30,7 +30,7 @@ Fully specified:
       ?w=800
       &h=600
       &fit=cover
-      &position=center
+      &g=center
       &q=80
       &format=auto
       &dpr=2

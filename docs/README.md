@@ -61,8 +61,10 @@ contract. See `docs/ARCHITECTURE/00-SYSTEM-ARCHITECTURE.md` for the full diagram
 | `TESTING/` | Test strategy across every layer. |
 | `UI-UX/` | The developer/admin dashboard. |
 | `DEVELOPER/` | Getting-started and task-oriented developer docs. |
+| `WEBSITE/` | **The public web presence**: competitive landscape, positioning, the landing page's structure and full copy, visual direction (including how not to look machine-assembled), asset licensing, the documentation site's IA and content plan, performance/SEO/accessibility budgets, and the launch checklist. |
+| `ENGINEERING/` | **How code in this repository is written**: project structure, naming, layering, templates per layer, error/response shapes, tenant-scoping rules, testing conventions, lint enforcement, and the review checklist. Start with `ENGINEERING/00-CODING-CONTEXT.md`. |
 
-293 documents total. See each category's own `README.md` for its file list.
+318 documents total. See each category's own `README.md` for its file list.
 
 ## One architectural decision that shapes everything else
 

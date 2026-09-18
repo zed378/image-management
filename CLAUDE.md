@@ -8,11 +8,14 @@ two never need to say the same thing twice and risk drifting apart.
 
 ## Quick orientation
 
-- `docs/` -- the specification (293 documents, 20 categories). Start with
+- `docs/` -- the specification (318 documents, 22 categories). Start with
   `docs/README.md`.
-- `TASKS/` -- the execution plan (74 tasks, 8 phases). Start with
+- `TASKS/` -- the execution plan (78 tasks, 8 phases). Start with
   `TASKS/PROGRESS.md`, and read `TASKS/00-TASK-CONVENTIONS.md` before the
   first task of any session.
+- `docs/ENGINEERING/` -- how code is written here. Read
+  `docs/ENGINEERING/00-CODING-CONTEXT.md` (one page) before writing code;
+  open `01-CODING-STANDARDS.md` while writing a specific file.
 - `MEMORY/` -- the record. `MEMORY/DECISIONS.md` for why things are the way
   they are; `MEMORY/records/{TASK-ID}.md` for what happened on each task.
 

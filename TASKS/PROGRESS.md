@@ -5,7 +5,7 @@ commit/PR that closes a task (see `TASKS/00-TASK-CONVENTIONS.md`).
 
 Status values: `Not started` / `In progress` / `Blocked (<reason>)` / `Done`.
 
-**Total: 74 tasks across 8 phases. Current phase: Phase 0 -- Foundation.**
+**Total: 78 tasks across 8 phases. Current phase: Phase 0 -- Foundation.**
 
 ## Phase 0 -- Foundation
 
@@ -23,6 +23,7 @@ Detail: [`TASKS/PHASE-0-FOUNDATION.md`](./PHASE-0-FOUNDATION.md)
 | P0-08 | API Gateway skeleton + health check | Not started | - | - | - |
 | P0-09 | Error handling & standard error envelope | Not started | - | - | - |
 | P0-10 | Base CI security scan + dependency audit | Not started | - | - | - |
+| P0-11 | Enforce the engineering conventions in tooling | Not started | - | - | - |
 
 ## Phase 1 -- Multi-Tenancy, Data Model & Authentication
 
@@ -136,3 +137,6 @@ Detail: [`TASKS/PHASE-7-OBSERVABILITY-PERFORMANCE-LAUNCH.md`](./PHASE-7-OBSERVAB
 | P7-07 | End-to-end test suite covering the full core promise | Not started | - | - | - |
 | P7-08 | Developer documentation completion | Not started | - | - | - |
 | P7-09 | Launch readiness review | Not started | - | - | - |
+| P7-10 | Documentation site | Not started | - | - | - |
+| P7-11 | Landing page | Not started | - | - | - |
+| P7-12 | Site performance, accessibility & SEO gates | Not started | - | - | - |

@@ -67,8 +67,8 @@ important; neither is a subsection of the other.
 
 | Folder | What it holds |
 |---|---|
-| [`docs/`](./docs/README.md) | **The specification** -- product, architecture, API contract, database schema, the image delivery protocol, image processing, storage, multi-tenancy, security, CDN, search, SDKs, webhooks, observability, performance, DevOps, testing, dashboard UI, developer docs. 293 documents. |
-| [`TASKS/`](./TASKS/README.md) | **The execution plan** -- 74 tasks across 8 phases, each naming the documents it implements and how it is judged done. Start at [`TASKS/PROGRESS.md`](./TASKS/PROGRESS.md). |
+| [`docs/`](./docs/README.md) | **The specification** -- product, architecture, API contract, database schema, the image delivery protocol, image processing, storage, multi-tenancy, security, CDN, search, SDKs, webhooks, observability, performance, DevOps, testing, dashboard UI, developer docs, engineering conventions, the public website. 318 documents. |
+| [`TASKS/`](./TASKS/README.md) | **The execution plan** -- 78 tasks across 8 phases, each naming the documents it implements and how it is judged done. Start at [`TASKS/PROGRESS.md`](./TASKS/PROGRESS.md). |
 | [`MEMORY/`](./MEMORY/README.md) | **The record** -- decisions and what was actually built, and why. Decisions live in [`MEMORY/DECISIONS.md`](./MEMORY/DECISIONS.md). |
 
 `AGENTS.md` and `CLAUDE.md` are the operating instructions for anyone --

@@ -135,7 +135,8 @@ are hit.
   built in `TASKS/PHASE-6...` P6-04.
 
 ### ADR-008: `format=auto` prefers AVIF, then WebP, then JPEG
-- Status: Accepted
+- Status: Accepted (qualified by ADR-016 -- the preference stands, with a
+  size guard; the encode-cost caveat below was measured and did not hold)
 - Context: Bandwidth optimization is a core platform value; format choice
   is the single biggest lever, more so than quality tuning.
 - Decision: When `format` is omitted or explicitly `auto`, negotiate off
@@ -149,6 +150,13 @@ are hit.
   periodically as client support shifts; revisit this ADR if AVIF encode
   cost becomes a measured processing-time bottleneck in `P7-05`'s load
   tests.
+- **Outcome of that caveat (2026-09-18):** measured in
+  `docs/PERFORMANCE/02-IMAGE-PROCESSING-PERFORMANCE.md`. AVIF encode cost is
+  *not* a bottleneck at `effort: 1` -- it is cheaper than both JPEG and WebP
+  on photographic content. The caveat pointed at the wrong variable: encoder
+  *effort* is the cost lever, not codec choice. A separate problem did
+  surface, that AVIF is larger than JPEG on high-frequency content, so the
+  preference now carries a size guard. See `ADR-016`.
 
 ### ADR-009: Image Delivery Protocol is a first-class documentation
     category, on equal footing with API/
@@ -191,3 +199,416 @@ are hit.
   and `PHASE-4-DELIVERY-CDN.md` were updated to reference this category
   directly in their `Implements:` lists, and gained two new tasks (`P3-10`,
   `P4-07`, `P4-08`) to formalize and conformance-test it explicitly.
+
+### ADR-010: Engineering conventions are a first-class `docs/` category
+- Status: Accepted
+- Date: 2026-09-18
+- Context: 74 tasks across 8 phases will be executed by different people and
+  different agent sessions, none of which remember the others. Almost every
+  task touches a `docs/` file, application code, and a test suite in one
+  change. Without a written, specific convention, each session invents its
+  own file layout, error shape, naming, and tenant-scoping idiom, and the
+  result is one codebase in eight dialects -- with the dialects differing
+  most at exactly the boundaries (`params_hash`, tenant scoping, signed
+  URLs) where `MEMORY/DECISIONS.md` already recorded a decision that only
+  holds if it is implemented one way. `AGENTS.md`'s "Recommended default
+  stack" named the technologies but not how to use them.
+- Decision: Introduce `docs/ENGINEERING/` (16 documents) as its own
+  top-level category, with `00-CODING-CONTEXT.md` as a one-page master
+  reference read at the start of every session and `01-CODING-STANDARDS.md`
+  as the detailed, numbered standard. `AGENTS.md`'s session loop now names
+  reading `00-CODING-CONTEXT.md` as an explicit step, and its Hard rules
+  section names deviation from this category as an ADR rather than a
+  judgment call.
+- Alternatives considered: (a) Two root-level files (`CODING_STANDARDS.md`,
+  `CODING_CONTEXT.md`) as in the reference repository this was modelled on
+  -- rejected because every other body of specification in this project
+  lives in a numbered `docs/` category with a `README.md`, and a
+  root-level exception would be the one document nobody maintains alongside
+  the rest. (b) Folding the rules into `AGENTS.md` -- rejected because
+  `AGENTS.md` is deliberately short and about *process*; a 1,200-line
+  coding standard inside it would bury the eight-step loop that matters
+  most. (c) Distributing the rules into the categories they relate to
+  (error handling into `docs/API/`, scoping into `docs/MULTI-TENANCY/`) --
+  rejected because those categories specify the *contract* and must stay
+  implementation-neutral; an SDK author reading `docs/API/` should not have
+  to skip our ESLint configuration.
+- Consequences: One more category to keep current, and a genuine
+  bidirectional obligation: when `P0-06` picks a query layer, `P0-08` picks
+  an HTTP framework, and `P0-09` ratifies the error envelope, the
+  corresponding `docs/ENGINEERING/` documents are updated in the same
+  change -- each one names which task owns which open question in its own
+  "Open Questions" section, so this is checkable rather than hoped for. In
+  exchange, the architectural invariants from ADR-001, ADR-004, and ADR-005
+  become lint rules and CI gates (`docs/ENGINEERING/10-TOOLING-LINT-FORMAT.md`)
+  instead of things a reviewer must remember.
+
+### ADR-011: Code-level conventions baseline (layering, `ctx`-first, Zod, wire casing)
+- Status: Accepted
+- Date: 2026-09-18
+- Context: `docs/ENGINEERING/` is only useful if it makes specific choices.
+  Four of them were genuine forks that would otherwise be re-litigated per
+  task, and three of them are load-bearing for existing ADRs.
+- Decision:
+  1. **Module-per-domain vertical slices**
+     (`asset.routes.ts`/`.controller.ts`/`.service.ts`/`.repository.ts`)
+     rather than layer-first directories, with a fixed one-way call chain
+     `routes -> controller -> service -> repository -> packages/db`,
+     enforced by `no-restricted-imports` on filename globs and by
+     `dependency-cruiser`.
+  2. **`ctx: TenantContext` is the first positional parameter of every
+     repository and service function.** This is how ADR-005 is enforced at
+     compile time rather than by discipline: a forgotten tenant scope
+     becomes a type error, not a cross-tenant read. Deliberately chosen over
+     `AsyncLocalStorage`, which would make the same code read correctly
+     while depending on invisible ambient state that a worker, a test, or a
+     cron job can silently fail to establish.
+  3. **Zod as the single source of runtime validation and the TypeScript
+     type** at every boundary (HTTP request, job payload, config, cached
+     value). One schema, one inferred type, no hand-written duplicate that
+     can drift.
+  4. **`snake_case` on the wire, `camelCase` in TypeScript, converted only
+     in `*.mapper.ts`.** The database, the delivery protocol, and the API
+     then name the same concept with the same string (`params_hash`,
+     `content_type`), which makes a field greppable across a SQL query, a
+     log line, a cache-key debug header, and a JSON response.
+- Alternatives considered: Layer-first directories (rejected: every task
+  touches one concept across all layers, so a layer-first tree makes each
+  task a four-directory diff); `AsyncLocalStorage` for tenant context
+  (rejected as above -- it optimizes for terse signatures at the cost of the
+  one guarantee ADR-005 exists to provide); a service-layer result object
+  `{ success, status, message, data }` as in the repository this convention
+  was modelled on (rejected: a status code in a return value makes a service
+  unusable from a worker, and this platform runs half its work in workers --
+  so services throw typed `AppError`s and only the HTTP error middleware
+  knows about status codes); `camelCase` on the wire (rejected for the
+  greppability argument above, though `docs/API/01-API-STANDARDS.md` remains
+  the normative home and `P0-09` may overrule it).
+- Consequences: The `ctx`-first rule makes every repository signature two
+  characters longer and makes ADR-005 mechanically checkable, which is the
+  trade this platform wants. `scoped()`'s six required properties
+  (`docs/ENGINEERING/07-REPOSITORY-DATABASE-STANDARDS.md`) become the
+  selection criteria for `P0-06`'s query layer: an ORM that cannot express
+  a tenant predicate a caller is unable to remove makes ADR-005
+  unenforceable and should lose on that basis alone. The wire-casing choice
+  is the one item here that `P0-09` may reverse; if it does, this document
+  and every `*.schema.ts` change together, not separately.
+
+### ADR-012: Transformation parameter vocabulary follows real standards
+    first, then the cross-provider consensus
+- Status: Accepted
+- Date: 2026-09-18
+- Context: `docs/IMAGE-DELIVERY-PROTOCOL/04-TRANSFORMATION-PARAMETERS.md`
+  and `03-TRANSFORMATION-URL-SPECIFICATION.md` both carried the same open
+  question -- *"Confirm parameter naming (`w` vs `width`, `q` vs
+  `quality`)"* -- and nothing downstream could be finalized until it was
+  answered. A survey of the four providers our consumers are most likely to
+  arrive from (imgix, Cloudflare Images, Cloudinary, ImageKit, each checked
+  against its official documentation on 2026-09-18) showed strong agreement
+  on short names (`w`, `h`, `ar`, `q`, `f`, `dpr`, `bg`) and near-total
+  disagreement on the `fit` value vocabulary: imgix uses
+  `clip`/`crop`/`fill`/`max`/`min`/`scale`, Cloudflare uses
+  `scale-down`/`contain`/`cover`/`crop`/`pad`/`squeeze`. Two of our earlier
+  draft names were also idiosyncratic: `position` (sharp's own API name) and
+  `ratio` (everyone else says `ar`).
+- Decision: Two ordered rules. **(1) Where a real standard exists, follow
+  the standard rather than any vendor.** `fit` takes the CSS `object-fit`
+  vocabulary (`cover`, `contain`, `fill`, `scale-down`, `none`; CSS Images
+  Module Level 3) plus two extra values (`inside`, `outside`) for the cases
+  that change output dimensions, which CSS has no concept of. Content
+  negotiation follows RFC 9110 `Accept`/`Vary`; the sizing parameters are
+  designed to drop into WHATWG `srcset`/`sizes`. **(2) Where no standard
+  exists, take the largest intersection across providers.** Canonical names
+  are the short forms; long forms (`width`, `quality`, `format`,
+  `background`) are accepted aliases because Cloudflare accepts both and
+  they read better in hand-written URLs. `position` becomes `g` (canonical
+  `g`/`gravity`, per Cloudflare and Cloudinary); `ratio` becomes `ar`.
+  Defaults are stated explicitly, notably `fit=scale-down` -- chosen because
+  it is the only non-destructive default (never crops, never upscales) and
+  is deliberately not sharp's default of `cover`, so the engine default must
+  be overridden in code and pinned by a test.
+- Alternatives considered: (a) Adopt imgix's vocabulary wholesale, since our
+  URL form is also query-string -- rejected because imgix's `fit` values are
+  understood nowhere outside imgix, and `clip`/`min`/`max` are actively
+  confusing. (b) Invent a clearer vocabulary of our own -- rejected: a
+  protocol that an origin, a CDN edge, and several SDKs must agree on
+  byte-for-byte gains nothing from novelty, and every original name is a
+  name a migrating developer has to learn. (c) Keep `position` because the
+  implementation uses it -- rejected as the same abstraction leak `ADR-001`
+  forbids for storage; the public protocol must not inherit the processing
+  library's vocabulary, or swapping the engine becomes a breaking API
+  change.
+- Consequences: A migrating consumer guesses our names correctly on the
+  first try, which is the point. The alias map is *data* -- one table in
+  `packages/transform-params` -- so imgix and Cloudinary compatibility modes
+  (`fm=`, `auto=format`, `c=fill`, `fo=`) cost a row each rather than a code
+  path, and that directly serves `docs/DEVELOPER/13-MIGRATION.md`. Because
+  aliases resolve before hashing, they cannot fragment the cache. The
+  `fit=scale-down` default is now a load-bearing published value: changing
+  it later would alter the bytes returned by every existing URL that omits
+  `fit`, making it a breaking change under
+  `docs/IMAGE-DELIVERY-PROTOCOL/30-VERSIONING.md`.
+
+### ADR-013: Unknown query parameters are partitioned, not blanket-rejected
+- Status: Accepted
+- Date: 2026-09-18
+- Context: The draft of `03-TRANSFORMATION-URL-SPECIFICATION.md` specified
+  `400` for any unrecognized parameter, on the sound reasoning that silently
+  ignoring `widht=400` returns a different, wrong image without telling the
+  developer. But every surveyed provider ignores unknown parameters instead,
+  and the blanket rule has a concrete production failure mode we would not
+  control: image URLs get shared, and shared URLs acquire tracking
+  parameters. `?utm_source=`, `?fbclid=`, `?gclid=`, a proxy's own additions
+  -- under a blanket `400` every one of those turns a working image into a
+  broken one, caused by traffic the developer using our platform has no say
+  over.
+- Decision: Partition incoming parameters three ways. **Known** (canonical
+  name or alias) are processed. **Near-miss** (edit distance <= 2 from a
+  known name, or a known name in the wrong case) are rejected `400
+  invalid_transform_param` naming the suspected intent -- this preserves the
+  typo protection that motivated the strict rule, and typos are the case
+  that actually bites developers. **Foreign** (everything else) are ignored,
+  excluded from the cache key, and listed in an `X-Image-Ignored-Params`
+  response header. A project may opt into `strict_parameters` to reject
+  foreign parameters too; off by default.
+- Alternatives considered: (a) Blanket reject, as drafted -- rejected for the
+  shared-URL failure mode above. (b) Blanket ignore, as all four providers
+  do -- rejected because it silently returns the wrong image for a typo, and
+  the resulting support burden ("why is my crop not applying") is exactly
+  what the response header solves for free. (c) Namespace every
+  transformation parameter with a prefix so foreign ones are unambiguous --
+  rejected as hostile to the consensus naming ADR-012 just adopted; no
+  provider does it and every URL would get longer.
+- Consequences: Foreign parameters can never fragment the cache, because
+  they are dropped before canonicalization. The near-miss threshold (edit
+  distance <= 2) is a guess that needs tuning in `P3-02` against the real
+  vocabulary -- too tight misses typos, too loose rejects legitimate foreign
+  parameters, and both directions need a test per known-name pair.
+  `X-Image-Ignored-Params` is a header on a cacheable object, so whether it
+  is emitted always or only under a debug flag interacts with the edge and
+  is left to `P4-01`.
+
+### ADR-014: Deferred (`auto`) parameter values resolve to concrete values
+    before hashing; dimension snapping is opt-in
+- Status: Accepted
+- Date: 2026-09-18
+- Context: Two related questions fell out of finalizing the parameter table.
+  First, the protocol accepts several "decide this later" values -- `f=auto`,
+  `q=auto`, `g=auto`, `g=face`, `rot=auto`. Second, `w` accepts arbitrary
+  integers, which means one image can have effectively unbounded distinct
+  derivatives, and derivative cardinality -- not request rate -- is this
+  platform's real cost driver.
+- Decision: **(1)** Every deferred value is resolved to a concrete value
+  during canonicalization, and the concrete value enters `params_hash`,
+  never the literal string `auto` (step 9 of the algorithm in `03`).
+  Correspondingly, the raw `Accept` header never reaches a cache key: it
+  collapses to exactly one of three buckets (`avif`, `webp`, `jpeg`) in
+  `ADR-008`'s priority order, and the bucket is what `f=auto` resolves to.
+  **(2)** `w`/`h` accept arbitrary integers by default, matching every
+  surveyed provider except Next.js. A per-project setting snaps them up to
+  the nearest rung of a discrete ladder, defaulting to Next.js's own width
+  list (`16,32,48,64,96,128,256,384,640,750,828,1080,1200,1920,2048,3840`);
+  when enabled, the snapped value is what enters `params_hash`.
+- Alternatives considered: For (1), hashing `auto` literally -- rejected, and
+  this is the important half of this ADR: retuning the quality table,
+  changing the format ladder, or upgrading the saliency model would leave
+  every cache entry and stored object keyed identically while the bytes they
+  should contain had changed, so the edge would serve the stale encoding
+  indefinitely with nothing in the system able to detect it. That is
+  `ADR-004`'s failure mode one layer up. Also rejected: `Vary` on the raw
+  `Accept` header -- real-world `Accept` values are numerous enough to
+  fragment the edge cache badly for no benefit. For (2), snapping by default
+  -- rejected because a developer who asks for 401px and receives 640px has
+  hit a surprise, and surprise in a public protocol costs more trust than
+  the snapping saves in cost.
+- Consequences: Two requests for the same URL from clients with different
+  `Accept` headers are legitimately two derivatives;
+  `12-FORMAT-NEGOTIATION.md` and `18-CACHE-KEY-SPECIFICATION.md` must both
+  treat the bucket, not the header, as the varying input. The quality table,
+  the format ladder, the blur/sharpen sigma mapping, and the ladder rungs all
+  become versioned tables: changing any of their values changes output for
+  unchanged URLs, so each carries a version that participates in the hash.
+  `g=auto`/`g=face` additionally need a stability guarantee across engine
+  upgrades (open question in `04`, decided in `P3-06`) -- persisting the
+  resolved rectangle with the derivative is the leading candidate. Snapping
+  remains available as the single largest cost lever, and
+  `docs/PLAN/17-PRICING-ENTITLEMENT.md` may expose it to customers as one.
+
+### ADR-015: AVIF is never on the critical path -- `f=auto` degrades
+    progressively, explicit `f=` never degrades
+- Status: Accepted; **rationale replaced by ADR-016.** The mechanism below
+  (progressive upgrade, `auto` may degrade / explicit never degrades, the
+  identity and failure rules) stands unchanged and is normative. Its stated
+  reason -- that AVIF encoding is too expensive for the request path -- was
+  measured on the same day and proved false at low effort. Read `ADR-016`
+  for why the mechanism is still needed: not for latency, but because the
+  format size guard cannot run on the request path. Do not implement this
+  ADR from the Context section below without reading `ADR-016` first.
+- Date: 2026-09-18
+- Context: `ADR-008` made `f=auto` prefer AVIF, then WebP, then JPEG, and
+  noted its own exit condition: *"revisit this ADR if AVIF encode cost
+  becomes a measured processing-time bottleneck."* AVIF encoding is the most
+  expensive single operation in the pipeline by a wide margin, and on a cold
+  derivative it sits directly on the request path, where the visitor waits
+  for it. Worse, the cases that produce many cold derivatives at once -- a
+  catalog import going live, a cache purge, a newly popular page -- produce
+  bursts of simultaneous expensive encodes, so the worker fleet has to be
+  sized for peak latency rather than average throughput.
+
+  The obvious framing, "synchronous or asynchronous", turns out to be the
+  wrong question. The delivery path is called by an `<img>` element, which
+  needs bytes now; there is no `202 Accepted` available and no placeholder
+  that is acceptable in a layout. Fully asynchronous is not an option the
+  protocol can offer. The real question is **what is served while AVIF is
+  not ready**.
+- Decision: One asymmetry resolves it. **`f=auto` may degrade; an explicit
+  `f=` never degrades.** `auto` delegates the format choice to the platform,
+  so choosing a cheaper format when the preferred one is not yet available
+  is a decision `auto` licenses -- provided it is specified, which
+  `12-FORMAT-NEGOTIATION.md` now does. An explicit `f=avif` is a caller who
+  knows what they want and has accepted the latency; it is generated
+  synchronously at full effort or it fails, never substituted.
+
+  Concretely, for a request where `f=auto` resolves to `avif`: if the AVIF
+  derivative exists, serve it immutably. If it is absent, enqueue the
+  full-effort AVIF job (single-flight on a deterministic
+  `<assetVersionId>:<paramsHash>` job id), ensure the fallback derivative
+  exists, and serve the fallback with `max-age=60,
+  stale-while-revalidate=300` plus `X-Image-Format-Fallback: avif-pending`.
+  The next request after the TTL lifts gets AVIF with the immutable TTL.
+  The fallback format is the cheapest the client accepts -- WebP, or JPEG
+  for the rare client advertising AVIF but not WebP.
+
+  Three supporting rules, each of which the mechanism is incorrect without:
+  **(a)** the fallback bytes are stored under the *WebP* derivative's own
+  object key, never under the AVIF key -- only the edge's cached response is
+  short-lived, never a stored object; the request's `params_hash` is
+  unaffected. **(b)** An AVIF job that fails unretryably marks the
+  derivative `avif_unavailable`, and the fallback then becomes the final
+  answer served with the full immutable TTL. **(c)** On repeated pending
+  misses the fallback TTL backs off 60s -> 300s -> 1800s.
+- Alternatives considered: (a) **Keep AVIF fully synchronous.** Simplest, one
+  code path, no eventual consistency -- rejected because it puts the most
+  expensive operation in the system on the path a visitor waits on, and
+  forces fleet sizing for burst. (b) **Serve a low-effort AVIF immediately
+  and re-encode at full effort in the background.** Superficially elegant,
+  and rejected on a specific technical ground: it produces two different
+  byte streams for the same `params_hash` in the same format, so they cannot
+  be distinguished by key, which makes the derivative-identity model
+  incoherent for a marginal latency gain. Encoder effort is an internal
+  tuning parameter and must not become part of a URL's identity. (c) **Serve
+  a redirect to the original, or the original resized in place.** Wrong
+  dimensions or wrong bytes; breaks layout. (d) **Return `202` with a
+  placeholder.** Not available to an `<img>` element. (e) **Drop AVIF from
+  `auto` entirely and offer it only explicitly** -- rejected because AVIF's
+  compression advantage is the platform's single biggest bandwidth lever,
+  and `ADR-008`'s reasoning still holds; the cost just belongs in the
+  background rather than on the request.
+- Consequences: AVIF encode cost becomes **throttleable**. Because it always
+  flows through the queue, the AVIF fleet can run near full utilization on
+  cheap ARM or spot capacity with the queue as a buffer, instead of being
+  provisioned for p99 request latency -- at the traffic levels this platform
+  targets that is a large difference in cost, not a marginal one. The
+  protocol gains a specified degradation mode, which is a behaviour every
+  conformance implementation must now reproduce
+  (`37-PROTOCOL-TESTING.md` gains six cases). A new SLI is required:
+  `format_fallback_ratio`, because a persistently high fallback rate is
+  otherwise invisible -- every request succeeds, the pages merely weigh more
+  than they should. A project whose clients are overwhelmingly AVIF-capable
+  will accumulate rarely-requested WebP derivatives; they are small and
+  cheap and this is an accepted cost. Finally, this interacts with
+  `ADR-014`: with the dimension ladder enabled the derivative set per asset
+  version is finite, so AVIF can be generated eagerly at upload time and
+  cold AVIF requests become rare -- giving the ladder a second justification
+  beyond cardinality control, and reducing progressive upgrade to a safety
+  net for arbitrary widths. The ladder stays off by default; this does not
+  reverse that.
+
+### ADR-016: Encoder effort, not codec choice, is the cost lever;
+    `f=auto` gains a size guard
+- Status: Accepted (qualifies ADR-008, replaces the rationale of ADR-015)
+- Date: 2026-09-18
+- Context: `ADR-008` chose AVIF-first for `f=auto` and left itself an exit
+  condition: *"revisit this ADR if AVIF encode cost becomes a measured
+  processing-time bottleneck."* `ADR-015` then built an entire progressive
+  format upgrade mechanism on the premise that AVIF encoding is expensive
+  enough that it cannot sit on the request path. Neither decision had a
+  measurement behind it. A benchmark was run to get one
+  (`docs/PERFORMANCE/02-IMAGE-PROCESSING-PERFORMANCE.md`, 2026-09-18,
+  libvips 8.17.3 / libaom 3.13.1, three synthetic fixtures bracketing real
+  traffic, single-op cost, median of 7).
+
+  **The measurement refuted the premise.** On photographic content at
+  w=1280, AVIF at `effort: 1` costs 120 ms and produces 4 KiB, against JPEG
+  at 148 ms / 19 KiB and WebP `effort: 4` at 230 ms / 10 KiB. AVIF at low
+  effort is *faster than both* and roughly a fifth the size of JPEG. What is
+  expensive is the **effort setting**: the same case at `effort: 4` costs
+  1241 ms -- 10.3x -- to save at most one kibibyte, and on the
+  high-frequency fixture `effort: 4` reached 19.8 s, a 33x multiple. There
+  is a cliff between effort 1 and effort 2, and both sharp defaults (AVIF 4,
+  WebP 4) sit on the wrong side of it.
+
+  A second, unrelated finding: AVIF is **not** universally smaller. On the
+  high-frequency fixture at w=1280 it produced 769 KiB against JPEG's 261
+  KiB -- nearly three times larger -- and WebP also lost to JPEG. AV1's
+  transform is built for natural images with structure, and near-random
+  detail defeats it. So "always AVIF when the client accepts it" is a
+  pessimization for some content: more expensive to produce *and* larger to
+  deliver.
+- Decision: Three parts.
+
+  **(1) Encoder settings are explicit and low-effort, never the library
+  default.** AVIF `effort: 1`, WebP `effort: 2`, JPEG mozjpeg progressive.
+  These values live in the **versioned encoder-settings table** that
+  participates in `params_hash` under `ADR-014`'s versioned-tables rule,
+  because changing `effort` changes the bytes returned for an otherwise
+  identical URL and therefore may not change silently.
+
+  **(2) `ADR-008`'s AVIF-first preference stands, with a size guard.** The
+  generation job encodes the AVIF candidate and compares its output against
+  the cheaper candidate for the same quality tier. When AVIF is not smaller,
+  the derivative is marked `avif_not_beneficial`, the format decision for
+  that derivative flips to the smaller candidate, and the decision is
+  recorded so `f=auto` resolution is deterministic thereafter.
+
+  **(3) `ADR-015`'s progressive upgrade mechanism is retained, with a new
+  justification.** It is no longer about AVIF latency -- at effort 1 there is
+  no latency problem to solve. It is about the size guard in (2): which
+  format wins cannot be known until the candidates have been encoded, and
+  encoding two candidates is plainly not request-path work. So the first
+  request for a cold `f=auto` derivative still serves the cheap candidate
+  under a short TTL while the comparison runs in the background, exactly as
+  `ADR-015` specified. Burst absorption remains a real secondary benefit.
+- Alternatives considered: (a) **Keep `ADR-015` as written, on its original
+  latency rationale** -- rejected because the rationale is measurably false,
+  and a mechanism kept for a reason that does not hold is a mechanism nobody
+  will maintain correctly. (b) **Drop the progressive upgrade entirely and
+  serve AVIF synchronously at effort 1** -- genuinely tempting, and it was
+  the conclusion drawn from the first two fixtures. Rejected once the
+  high-frequency fixture showed AVIF losing to JPEG by 195%: without a size
+  guard the platform would knowingly deliver larger files on a class of real
+  content, and the guard cannot run on the request path. (c) **Accept the
+  pessimization and always serve AVIF** -- simpler, and defensible on the
+  grounds that most real content is photographic where AVIF wins by ~79%.
+  Rejected because bandwidth is the product's core claim and a silent 3x
+  regression on grainy or foliage-heavy catalogs is the kind of thing a
+  customer discovers before we do. (d) **Raise effort for "important"
+  derivatives** -- rejected: effort would become part of URL identity, which
+  `ADR-015` already rejected for the same reason, and the measurement shows
+  it buys at most one kibibyte anyway.
+- Consequences: Processing cost drops by roughly an order of magnitude
+  against a naive implementation that ships the library defaults -- from
+  about 6.2 cores to about 0.6 cores to sustain 5 transforms/second on
+  12 MP sources. `P3-01` and `P3-05` must set effort explicitly and pin it
+  with a test, because the failure mode here is silent: the defaults work,
+  they are just ten times more expensive. The size guard adds a second
+  encode per cold `f=auto` derivative, which is economically obvious given
+  derivatives are generated once and delivered from cache thereafter, but it
+  does mean generation cost roughly doubles for that path and the WebP
+  candidate is retained as a derivative in its own right. The format
+  decision becomes per-derivative persisted state, so `12-FORMAT-NEGOTIATION.md`
+  gains `avif_not_beneficial` alongside `avif_unavailable` and
+  `37-PROTOCOL-TESTING.md` gains a case for it. Finally, the benchmark
+  itself needs re-running on Linux and ARM and on real photographs before
+  any byte figure is published (`docs/WEBSITE/03-LANDING-PAGE-COPY.md`); the
+  effort cliff will hold, the absolute numbers will not.

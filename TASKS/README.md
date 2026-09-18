@@ -1,6 +1,6 @@
 # TASKS -- The Execution Plan
 
-This is the plan that turns `docs/` into a running platform: 74 tasks across
+This is the plan that turns `docs/` into a running platform: 78 tasks across
 8 phases, each naming exactly which documents it implements and how it is
 judged done.
 

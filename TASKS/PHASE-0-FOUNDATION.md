@@ -240,3 +240,46 @@ whole tree or a single package.
       triaged in `MEMORY/records/P0-10.md`, not silently ignored.
 
 ---
+
+### P0-11: Enforce the engineering conventions in tooling
+
+- **Depends on:** P0-01, P0-03
+- **Implements:** `docs/ENGINEERING/10-TOOLING-LINT-FORMAT.md`, `docs/ENGINEERING/02-PROJECT-STRUCTURE.md`
+
+`docs/ENGINEERING/` states the conventions; this task makes the ones that
+can be machine-checked machine-checked, so ADR-001, ADR-004, and ADR-005
+survive sessions that never read the documents. A convention only a
+reviewer enforces is a suggestion.
+
+**Steps**
+1. Flat ESLint config at the root with the architectural
+   `no-restricted-imports` / `no-restricted-syntax` rules from
+   `docs/ENGINEERING/10-TOOLING-LINT-FORMAT.md`: controller -> repository,
+   service -> HTTP types, provider SDKs outside `packages/storage-adapter`,
+   param hashing outside `packages/transform-params`, `console.*`, and
+   `unsafeUnscoped` outside admin/maintenance contexts. Each rule carries a
+   message naming the ADR or document it enforces.
+2. The correctness rule set (`no-explicit-any`, `no-floating-promises`,
+   `no-misused-promises`, `switch-exhaustiveness-check`,
+   `consistent-type-imports`, `import/no-default-export`, `import/order`),
+   all as errors, with `--max-warnings=0`.
+3. `dependency-cruiser` config with the forbidden rules: no cycles, no
+   `services/* -> services/*`, no `packages/* -> services/*`, no
+   `apps/* -> ` internals, no deep package imports. Wire `pnpm deps:check`.
+4. Prettier + `.editorconfig` + `.gitattributes` (`eol=lf`), and
+   `lint-staged` on pre-commit; `commit-msg` hook validating the
+   `P{phase}-{seq}: <summary>` subject from `TASKS/00-TASK-CONVENTIONS.md`.
+5. Add every step to CI in the fail-fast order
+   `docs/ENGINEERING/10-TOOLING-LINT-FORMAT.md` specifies, and wire the
+   coverage thresholds from `docs/ENGINEERING/09-TESTING-CONVENTIONS.md`.
+
+**Definition of Done**
+- [ ] A deliberately-violating fixture commit fails the build for each
+      architectural rule -- the rules are proven to fire, not just present.
+- [ ] `pnpm lint typecheck test deps:check` all run identically locally and
+      in CI, with zero warnings tolerated.
+- [ ] `docs/ENGINEERING/10-TOOLING-LINT-FORMAT.md` updated with the
+      framework/ORM-specific rule targets left open by `P0-06` and `P0-08`,
+      or an explicit note that they are still pending.
+
+---

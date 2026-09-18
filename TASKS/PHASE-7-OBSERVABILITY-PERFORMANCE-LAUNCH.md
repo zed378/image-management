@@ -208,3 +208,129 @@ and a fresh developer can follow it end to end.
       knowingly deferred; nothing left silently incomplete.
 
 ---
+
+---
+
+### P7-10: Documentation site
+
+- **Depends on:** P7-08
+- **Implements:** `docs/WEBSITE/06-DOCS-SITE-PLAN.md`, `docs/WEBSITE/07-DOCS-CONTENT-PLAN.md`
+
+The docs are the sales motion for this product: the primary audience decides
+by reading, and the published protocol specification is the stated
+differentiator. This task builds the site that carries both.
+
+**Steps**
+1. Choose the static generator against the ranked requirements in
+   `docs/WEBSITE/06-DOCS-SITE-PLAN.md` -- weight requirement 4 (how easily
+   it ingests *generated* content) above theme quality, and record the
+   choice in `MEMORY/DECISIONS.md`.
+2. Build `apps/website` with three route trees: `/` (landing, `P7-11`),
+   `/docs`, and `/protocol`. One application, one design system, one
+   deployment.
+3. Wire the generated pages so they cannot drift: the parameter reference
+   from `packages/transform-params`' registry, error codes from
+   `packages/errors`, the API reference from the OpenAPI spec.
+4. Render `/protocol` from `docs/IMAGE-DELIVERY-PROTOCOL/` with stable
+   anchors, a version banner, and the downloadable conformance fixture from
+   `P3-10`.
+5. Write every page in `docs/WEBSITE/07-DOCS-CONTENT-PLAN.md`, including
+   `/docs/responsive`, which has no `docs/` source yet -- write
+   `docs/DEVELOPER/14-RESPONSIVE-IMAGES.md` first so the public page has a
+   specification behind it like every other page.
+6. Make every code sample a real file under `apps/website/samples/`,
+   executed by the test suite and *included* into the page rather than
+   pasted.
+
+**Definition of Done**
+- [ ] Every documentation code sample runs in CI against a live test
+      project; a sample that does not run fails the build.
+- [ ] No page documents unbuilt behaviour (`docs/WEBSITE/06` rules).
+- [ ] The parameter reference, error codes, and API reference are generated,
+      not hand-written, and a deliberate mismatch fails the build.
+- [ ] `docs/WEBSITE/06-DOCS-SITE-PLAN.md` and `07-DOCS-CONTENT-PLAN.md`
+      updated with the generator chosen and any IA deviation.
+
+---
+
+### P7-11: Landing page
+
+- **Depends on:** P7-10, P3-02, P7-04
+- **Implements:** `docs/WEBSITE/01-POSITIONING-AND-MESSAGING.md`, `02-LANDING-PAGE-STRUCTURE.md`, `03-LANDING-PAGE-COPY.md`, `04-VISUAL-DIRECTION.md`, `05-ASSET-SOURCING.md`
+
+**Steps**
+1. Confirm the Stage 0 blockers in `docs/WEBSITE/09-LAUNCH-CHECKLIST.md`
+   are clear -- product name, `docs/PLAN/17-PRICING-ENTITLEMENT.md` Final, at
+   least one real measurement, accent colour and typefaces, eight
+   photographs with `credits.json` entries. Do not start without them; every
+   one of them determines content that would otherwise be rewritten.
+2. Build the sections in `docs/WEBSITE/02-LANDING-PAGE-STRUCTURE.md` with
+   the copy in `03-LANDING-PAGE-COPY.md`, honouring the anti-generic rules
+   in `04-VISUAL-DIRECTION.md`.
+3. Build the live transformation panel -- the one bespoke component on the
+   site, and the page's entire argument. It must call the real delivery path,
+   read its numbers from real response headers, reserve its layout box, and
+   degrade to a static real-numbers fallback with no JavaScript.
+4. Constrain the panel's and `/migrate`'s abuse surface to a fixed allowlist
+   of demo asset ids and parameter values, rate limited. An unconstrained
+   public transformation endpoint is a free image-processing service for the
+   internet.
+5. Serve every image on the site through the platform itself, from the
+   platform's own bucket, with `srcset` and `f=auto`, at widths drawn from
+   `ADR-014`'s ladder.
+6. Build `/pricing`, `/migrate`, `/credits`, `/changelog`, and `/legal/*`.
+
+**Definition of Done**
+- [ ] Every `[[N]]` placeholder in `docs/WEBSITE/03-LANDING-PAGE-COPY.md` is
+      replaced by a measured number, or its section ships in the
+      prose-only form. No invented figure ships, and no placeholder ships
+      looking like a real number.
+- [ ] Every PROOF line in the copy document is satisfied or the claim is
+      removed.
+- [ ] The Stage 2 truthfulness audit in
+      `docs/WEBSITE/09-LAUNCH-CHECKLIST.md` is completed by someone who did
+      not write the copy.
+- [ ] `/credits` lists every image with photographer, source, licence, and
+      a committed licence snapshot; an uncredited image fails the build.
+- [ ] The migration claim is verified by running a real imgix URL and a real
+      Cloudinary URL against the deployed platform.
+
+---
+
+### P7-12: Site performance, accessibility & SEO gates
+
+- **Depends on:** P7-11
+- **Implements:** `docs/WEBSITE/08-SEO-PERFORMANCE-A11Y.md`
+
+A platform selling image delivery performance whose own pages are slow, or
+whose own images are oversized, has published a counter-argument to itself --
+and any prospect can verify it in thirty seconds with devtools. This task
+makes that impossible to regress.
+
+**Steps**
+1. Add Lighthouse CI on `/`, `/docs`, `/docs/quickstart`, `/protocol`, with
+   the numeric budgets from `docs/WEBSITE/08-SEO-PERFORMANCE-A11Y.md`
+   (LCP <= 1.8 s, CLS <= 0.02, INP <= 120 ms, JS <= 45 KB, total <= 400 KB,
+   Lighthouse >= 98). A regression fails the build, it is not a warning.
+2. Add `axe-core` checks on the same routes, in both themes, zero
+   violations.
+3. Add the image dogfooding check: every site image delivered through the
+   platform, none more than 1.5x its largest rendered width, total image
+   bytes within budget.
+4. Add the credits check, the link check, the code-sample execution, the
+   quickstart end-to-end test, and HTML validation.
+5. Run the manual pass in Stage 4 of
+   `docs/WEBSITE/09-LAUNCH-CHECKLIST.md` -- keyboard-only, VoiceOver and
+   NVDA, 200% zoom, 320px, both themes, a real mid-range Android phone,
+   JavaScript disabled -- and record the results in the `MEMORY/` record.
+6. Set security headers (CSP, HSTS, `X-Content-Type-Options`, referrer
+   policy) and verify the CSP against the hero panel's own fetches.
+
+**Definition of Done**
+- [ ] All eight automated gates green and blocking in CI
+      (`docs/DEVOPS/02-CI-CD.md`).
+- [ ] The manual accessibility pass is completed and its findings are fixed,
+      not deferred; automated tooling catches roughly a third of real
+      issues, so the manual pass is the substantive one.
+- [ ] Real-user Core Web Vitals are collected post-launch and compared
+      against the lab budgets (Stage 6).

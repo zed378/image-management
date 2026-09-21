@@ -10,6 +10,7 @@ import {
   verifyApiKeySecret,
 } from "./api-key.crypto";
 import { createApiKeyRepository } from "./api-key.repository";
+import { audited } from "../audit/audit";
 import { createTenancyRepository } from "../tenancy/tenancy.repository";
 
 import type { CreateApiKeyBody, RotateApiKeyBody } from "./api-key.schema";
@@ -96,7 +97,7 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
     applicationId: string,
     body: CreateApiKeyBody,
   ): Promise<IssuedApiKey> =>
-    deps.db.transaction().execute(async (tx) => {
+    audited(deps.db, ctx, async (tx) => {
       assertApplicationInScope(ctx, applicationId);
       assertWithinCallerGrant(ctx, body.permissions, body.all_projects ? "all" : body.project_ids);
       const application = await tenancy.findApplication(ctx, applicationId, tx);
@@ -133,7 +134,16 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
         },
         tx,
       );
-      return { apiKey, plaintext: generated.plaintext };
+      return {
+        result: { apiKey, plaintext: generated.plaintext },
+        audit: {
+          action: "api_key.created",
+          targetType: "api_key",
+          targetId: apiKey.id,
+          applicationId,
+          metadata: { permissions: apiKey.permissions, all_projects: body.all_projects },
+        },
+      };
     });
 
   const list = async (ctx: TenantContext, applicationId: string): Promise<ApiKey[]> => {
@@ -154,7 +164,7 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
     keyId: string,
     body: RotateApiKeyBody,
   ): Promise<IssuedApiKey> =>
-    deps.db.transaction().execute(async (tx) => {
+    audited(deps.db, ctx, async (tx) => {
       assertApplicationInScope(ctx, applicationId);
       const old = await keys.findById(ctx, applicationId, keyId, tx);
       if (!old) throw new AppError("api_key_not_found");
@@ -181,8 +191,18 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
         tx,
       );
       const overlapMs = (body.overlap_seconds ?? DEFAULT_ROTATION_OVERLAP_SECONDS) * 1000;
-      await keys.expireBy(ctx, old.id, new Date(now().getTime() + overlapMs), tx);
-      return { apiKey, plaintext: generated.plaintext };
+      const oldExpiresAt = new Date(now().getTime() + overlapMs);
+      await keys.expireBy(ctx, old.id, oldExpiresAt, tx);
+      return {
+        result: { apiKey, plaintext: generated.plaintext },
+        audit: {
+          action: "api_key.rotated",
+          targetType: "api_key",
+          targetId: old.id,
+          applicationId,
+          metadata: { replacement_id: apiKey.id, old_expires_at: oldExpiresAt.toISOString() },
+        },
+      };
     });
 
   /** Immediate and permanent (SEC-AUTH-05). Idempotent. */
@@ -192,7 +212,16 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
     keyId: string,
   ): Promise<ApiKey> => {
     await requireKey(ctx, applicationId, keyId);
-    await keys.revoke(ctx, keyId);
+    await audited(deps.db, ctx, async (tx) => {
+      const changed = await keys.revoke(ctx, keyId, tx);
+      // Idempotent: a repeat revoke changes nothing and records nothing.
+      return {
+        result: undefined,
+        audit: changed
+          ? [{ action: "api_key.revoked", targetType: "api_key", targetId: keyId, applicationId }]
+          : [],
+      };
+    });
     return requireKey(ctx, applicationId, keyId);
   };
 

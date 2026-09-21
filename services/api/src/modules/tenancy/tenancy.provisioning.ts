@@ -2,6 +2,8 @@ import { scoped, unsafeUnscoped, type Db } from "@image-delivery/db";
 import { newId } from "@image-delivery/schema";
 import { systemContext, type Permission } from "@image-delivery/tenancy";
 
+import { audited } from "../audit/audit";
+
 import type { ApiKeyService } from "../api-keys/api-key.service";
 
 // Operator bootstrap: a tenant, its first application and project, and an
@@ -36,7 +38,7 @@ export const provisionTenant = async (
   const projectId = newId();
   const ctx = systemContext(tenantId);
 
-  await db.transaction().execute(async (tx) => {
+  await audited(db, ctx, async (tx) => {
     // tenants is global (docs/DATABASE/00): creating one is the definition of
     // crossing no tenant boundary, but it is still an unscoped write.
     await unsafeUnscoped(tx, "tenant-provisioning")
@@ -58,6 +60,17 @@ export const provisionTenant = async (
         slug: input.projectSlug,
       })
       .execute();
+    return {
+      result: undefined,
+      audit: {
+        action: "tenant.provisioned",
+        targetType: "tenant",
+        targetId: tenantId,
+        applicationId,
+        projectId,
+        metadata: { slug: input.tenantSlug },
+      },
+    };
   });
 
   const issued = await apiKeys.create(ctx, applicationId, {

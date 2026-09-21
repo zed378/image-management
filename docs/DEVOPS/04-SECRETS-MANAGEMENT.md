@@ -64,6 +64,24 @@ storage key at all.
    use on their own bucket and nothing more; the database role cannot
    `UPDATE` or `DELETE` audit rows (`P1-07`).
 
+## Database roles
+
+Two roles, so the running application never holds more than it needs
+(`P1-07`):
+
+| Role | Who uses it | Privileges |
+|---|---|---|
+| schema owner (the `DATABASE_URL` user of the migrate job) | `node dist/migrate.js`, retention purges | owns every table |
+| `image_delivery_app` (NOLOGIN group) | the api and worker connect as a login role that is a member of it | SELECT/INSERT/UPDATE/DELETE on tables, **except `audit_logs`: SELECT and INSERT only**; nothing on the migrator's bookkeeping |
+
+The group role and its grants are created by migration
+`20260921T1600_create_app_role` (default privileges cover later tables). In
+production, create the login role once (`create role api_login login
+password '...' in role image_delivery_app`) and give the services a
+`DATABASE_URL` for it; the migrate job keeps the owner's. Local development
+and tests use the owner for both, which is why the role's restriction is
+proven by a dedicated test (`services/api/tests/audit.int.test.ts`).
+
 ## Local development
 
 `cp .env.example .env`. The values match `deploy/docker-compose.yml` and are

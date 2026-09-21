@@ -126,7 +126,7 @@ Detail: `docs/DEVOPS/04-SECRETS-MANAGEMENT.md`, `docs/OBSERVABILITY/01`,
 | SEC-SEC-01 | MUST | No secret SHALL exist in the repository, its history, a default config value, a log line, or an error message. | CI (gitleaks, full history) + test (redaction) | Done (P0-05, P0-10) |
 | SEC-SEC-02 | MUST | A process SHALL refuse to start when a required secret is missing, and SHALL never print a secret's value in the refusal. | test | Done (P0-04) |
 | SEC-SEC-03 | MUST | Log output SHALL redact the paths in `packages/logger`'s redaction list (authorization, cookies, keys, secrets, tokens, passwords) and credential-bearing URL parts. | test | Done (P0-05) |
-| SEC-SEC-04 | MUST | Every security-relevant action (credential create/revoke, role change, tenant settings change) SHALL write an append-only audit record. | test | P1-07 |
+| SEC-SEC-04 | MUST | Every security-relevant action (credential create/revoke, role change, tenant settings change) SHALL write an append-only audit record. | test | Done for credentials and provisioning (P1-07); later actions with their tasks |
 
 ## 8. Abuse and denial of service
 

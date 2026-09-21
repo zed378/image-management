@@ -41,7 +41,11 @@ const challenge = (reply: FastifyReply): void => {
   reply.header("www-authenticate", 'Bearer realm="api"');
 };
 
-export const toTenantContext = (principal: ApiKeyPrincipal, requestId: string): TenantContext => ({
+export const toTenantContext = (
+  principal: ApiKeyPrincipal,
+  requestId: string,
+  sourceIp: string | null = null,
+): TenantContext => ({
   tenantId: principal.tenantId,
   applicationId: principal.applicationId,
   projectId: null,
@@ -49,6 +53,7 @@ export const toTenantContext = (principal: ApiKeyPrincipal, requestId: string): 
   permissions: new Set(principal.permissions),
   projectAccess: principal.projectAccess === "all" ? "all" : new Set(principal.projectAccess),
   requestId,
+  sourceIp,
 });
 
 /** Throws permission_denied unless the request's context holds `permission`. */
@@ -126,7 +131,7 @@ export const registerAuthentication = (
       throw new AppError("api_key_invalid");
     }
 
-    request.tenant = toTenantContext(principal, request.id);
+    request.tenant = toTenantContext(principal, request.id, request.ip);
     request.log = request.log.child({ tenant_id: principal.tenantId, key_id: principal.keyId });
   });
 

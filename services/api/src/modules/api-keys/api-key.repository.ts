@@ -153,13 +153,15 @@ export const createApiKeyRepository = (db: Executor) => {
       .execute();
   };
 
-  const revoke = async (ctx: TenantContext, keyId: string, tx?: Executor): Promise<void> => {
-    await scoped(tx ?? db, ctx)
+  /** True when this call revoked the key; false when it was already revoked. */
+  const revoke = async (ctx: TenantContext, keyId: string, tx?: Executor): Promise<boolean> => {
+    const result = await scoped(tx ?? db, ctx)
       .updateTable("api_keys")
       .set((eb) => ({ status: "revoked", revoked_at: eb.fn("now") }))
       .where("id", "=", keyId)
       .where("status", "<>", "revoked")
-      .execute();
+      .executeTakeFirst();
+    return result.numUpdatedRows > 0n;
   };
 
   return { findById, listByApplication, insert, expireBy, revoke };

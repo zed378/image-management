@@ -23,6 +23,8 @@ export type TenantContext = {
   /** The projects the credential may touch: every project of its application, or these. */
   readonly projectAccess: "all" | ReadonlySet<string>;
   readonly requestId: string | null;
+  /** The client address (after trusted proxies), for the audit trail. */
+  readonly sourceIp: string | null;
 };
 
 /**
@@ -41,6 +43,7 @@ export const systemContext = (
   permissions: new Set(),
   projectAccess: "all",
   requestId,
+  sourceIp: null,
 });
 
 /** The same context, narrowed to one project. Access is checked by the caller (P1-05). */

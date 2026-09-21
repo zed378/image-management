@@ -2,6 +2,7 @@ import * as m20260921T0900 from "./20260921T0900_create_tenancy_chain";
 import * as m20260921T1500 from "./20260921T1500_create_asset_tables";
 import * as m20260921T1510 from "./20260921T1510_create_access_tables";
 import * as m20260921T1520 from "./20260921T1520_create_platform_tables";
+import * as m20260921T1600 from "./20260921T1600_create_app_role";
 
 import type { Migration } from "kysely/migration";
 
@@ -17,4 +18,5 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "20260921T1500_create_asset_tables": m20260921T1500,
   "20260921T1510_create_access_tables": m20260921T1510,
   "20260921T1520_create_platform_tables": m20260921T1520,
+  "20260921T1600_create_app_role": m20260921T1600,
 };

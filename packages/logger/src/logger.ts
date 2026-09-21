@@ -1,4 +1,11 @@
-import { pino, type DestinationStream, type Logger as PinoLogger } from "pino";
+import {
+  destination,
+  pino,
+  stdSerializers,
+  stdTimeFunctions,
+  type DestinationStream,
+  type Logger as PinoLogger,
+} from "pino";
 
 import { REDACTED, REDACT_PATHS } from "./redact";
 
@@ -26,13 +33,13 @@ export const createLogger = (options: LoggerOptions): Logger =>
     {
       level: options.level,
       base: { service: options.service, version: options.version },
-      timestamp: pino.stdTimeFunctions.isoTime,
+      timestamp: stdTimeFunctions.isoTime,
       formatters: { level: (label) => ({ level: label }) },
       redact: { paths: [...REDACT_PATHS], censor: REDACTED },
       // Errors logged under `err` keep their stack and name.
-      serializers: { err: pino.stdSerializers.err },
+      serializers: { err: stdSerializers.err },
     },
-    options.destination ?? pino.destination({ fd: 1, sync: false }),
+    options.destination ?? destination({ fd: 1, sync: false }),
   );
 
 /** Identifiers bound to every line within one request or job. */

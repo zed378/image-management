@@ -19,7 +19,8 @@
     "deps:check": "depcruise packages services apps sdks --config .dependency-cruiser.cjs",
     "dev": "turbo run dev --parallel",
     "infra:up": "docker compose -f deploy/docker-compose.yml up -d --wait postgres redis minio && docker compose -f deploy/docker-compose.yml run --rm minio-init",
-    "infra:down": "docker compose -f deploy/docker-compose.yml down"
+    "infra:down": "docker compose -f deploy/docker-compose.yml down",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

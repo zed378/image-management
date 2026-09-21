@@ -9,5 +9,9 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@image-delivery/config": "workspace:*",
+    "zod": "^4.6.5"
   }
 }

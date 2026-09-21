@@ -1,6 +1,6 @@
 import { scoped, unsafeUnscoped, type Db } from "@image-delivery/db";
 import { newId } from "@image-delivery/schema";
-import { systemContext } from "@image-delivery/tenancy";
+import { systemContext, type Permission } from "@image-delivery/tenancy";
 
 import type { ApiKeyService } from "../api-keys/api-key.service";
 
@@ -14,7 +14,7 @@ export type ProvisionInput = {
   readonly tenantSlug: string;
   readonly applicationSlug: string;
   readonly projectSlug: string;
-  readonly keyPermissions: readonly string[];
+  readonly keyPermissions: readonly Permission[];
 };
 
 export type Provisioned = {

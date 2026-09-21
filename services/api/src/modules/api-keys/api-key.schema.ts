@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { ULID_PATTERN } from "@image-delivery/schema";
+import { PERMISSIONS } from "@image-delivery/tenancy";
 
 import {
   API_KEY_ENVIRONMENTS,
@@ -8,7 +9,6 @@ import {
   MAX_PERMISSIONS_PER_KEY,
   MAX_PROJECTS_PER_KEY,
   MAX_ROTATION_OVERLAP_SECONDS,
-  PERMISSION_PATTERN,
 } from "./api-key.constants";
 
 const ulid = z.string().regex(ULID_PATTERN);
@@ -22,7 +22,7 @@ export const createApiKeyBodySchema = z
     name: z.string().trim().min(1).max(MAX_API_KEY_NAME_LENGTH),
     environment: z.enum(API_KEY_ENVIRONMENTS),
     permissions: z
-      .array(z.string().regex(PERMISSION_PATTERN))
+      .array(z.enum(PERMISSIONS))
       .min(1)
       .max(MAX_PERMISSIONS_PER_KEY)
       .transform((p) => [...new Set(p)].sort()),

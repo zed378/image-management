@@ -26,6 +26,9 @@ export default defineConfig(
       "**/coverage/**",
       "**/.turbo/**",
       "**/.data/**",
+      // Other tools' worktrees nested in the checkout (not this repository's code).
+      ".kilo/**",
+      ".claude/**",
       // Deliberate violations; tools/tests/ asserts the rules fire on them.
       "tools/tests/fixtures/**",
     ],

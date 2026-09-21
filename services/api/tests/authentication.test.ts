@@ -30,17 +30,17 @@ beforeAll(async () => {
   app = await buildApp({
     logger: quietLogger(),
     readinessChecks: {},
-    apiKeys: stubApiKeys({ [READER]: { ...principal, permissions: ["thing:read"] } }),
+    apiKeys: stubApiKeys({ [READER]: { ...principal, permissions: ["asset:read"] } }),
     authFailures: createFailureLimiter({ maxFailures: 3, windowMs: 60_000 }),
     registerExtraRoutes: (v1) => {
       // A route added "later": it declares only a permission, and is
       // protected without doing anything else.
-      v1.get("/things", { config: { permission: "thing:read" } }, (request) => ({
+      v1.get("/things", { config: { permission: "asset:read" } }, (request) => ({
         tenant: request.tenant?.tenantId,
         actor: request.tenant?.actor,
         application: request.tenant?.applicationId,
       }));
-      v1.post("/things", { config: { permission: "thing:create" } }, () => ({ ok: true }));
+      v1.post("/things", { config: { permission: "asset:create" } }, () => ({ ok: true }));
       v1.get("/public-thing", { config: { public: true } }, () => ({ public: true }));
     },
   });
@@ -151,7 +151,7 @@ describe("when the credential store is down", () => {
         authenticate: () => Promise.reject(new Error("connect ECONNREFUSED 10.0.0.9:5432")),
       },
       registerExtraRoutes: (v1) => {
-        v1.get("/things", { config: { permission: "thing:read" } }, () => ({}));
+        v1.get("/things", { config: { permission: "asset:read" } }, () => ({}));
       },
     });
 

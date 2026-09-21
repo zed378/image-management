@@ -23,3 +23,6 @@ Thumbs.db
 test-results/
 playwright-report/
 *.log
+
+# Other tools' worktrees nested in the checkout.
+.kilo/

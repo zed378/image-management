@@ -57,7 +57,7 @@ describe("provisionTenant", () => {
       tenantSlug: "dup",
       applicationSlug: "default",
       projectSlug: "production",
-      keyPermissions: ["api-key:read"],
+      keyPermissions: ["api-key:read" as const],
     };
     await provisionTenant(t.db, apiKeys, input);
 

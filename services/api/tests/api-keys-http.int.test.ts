@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { createLogger } from "@image-delivery/logger";
-import { systemContext } from "@image-delivery/tenancy";
+import { systemContext, type Permission } from "@image-delivery/tenancy";
 import {
   createTestDatabase,
   seedApplication,
@@ -20,7 +20,7 @@ import type { FastifyInstance } from "fastify";
 // escalation, and the cross-tenant 404 on every :id route (CLAUDE.md, SEC-TEN-03).
 
 const PEPPER = "test-pepper-0123456789abcdef0123456789abcdef";
-const ALL = ["api-key:create", "api-key:read", "api-key:update", "api-key:delete"];
+const ALL: Permission[] = ["api-key:create", "api-key:read", "api-key:update", "api-key:delete"];
 
 let t: TestDatabase;
 let apiKeys: ApiKeyService;
@@ -30,7 +30,7 @@ let b: SeededTenant;
 let adminA: string;
 let adminB: string;
 
-const issue = async (tenant: SeededTenant, permissions: string[], applicationId?: string) =>
+const issue = async (tenant: SeededTenant, permissions: Permission[], applicationId?: string) =>
   apiKeys.create(systemContext(tenant.tenantId), applicationId ?? tenant.applicationId, {
     name: "fixture",
     environment: "live",

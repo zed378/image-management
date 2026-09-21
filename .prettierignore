@@ -13,3 +13,7 @@ tools/tests/fixtures/
 # burying real spec changes in whitespace diffs. Markdown is reviewed as
 # text; .editorconfig still governs its line endings and final newline.
 *.md
+
+# Other tools' worktrees nested in the checkout.
+.kilo/
+.claude/

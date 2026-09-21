@@ -23,6 +23,7 @@ import {
   withDotEnv,
 } from "@image-delivery/config";
 import { createDb } from "@image-delivery/db";
+import { isPermission } from "@image-delivery/tenancy";
 
 import { createApiKeyService } from "./modules/api-keys/api-key.service";
 import { provisionTenant } from "./modules/tenancy/tenancy.provisioning";
@@ -52,6 +53,14 @@ const main = async (): Promise<void> => {
     process.exit(2);
   }
 
+  const permissions = values.permissions.split(",").map((p) => p.trim());
+  const unknown = permissions.filter((p) => !isPermission(p));
+  if (unknown.length > 0) {
+    process.stderr.write(`provision: unknown permission(s): ${unknown.join(", ")}
+`);
+    process.exit(2);
+  }
+
   let env;
   try {
     env = parseConfig(
@@ -78,7 +87,7 @@ const main = async (): Promise<void> => {
         tenantSlug,
         applicationSlug: values["application-slug"],
         projectSlug: values["project-slug"],
-        keyPermissions: values.permissions.split(",").map((p) => p.trim()),
+        keyPermissions: permissions.filter(isPermission),
       },
     );
     process.stdout.write(

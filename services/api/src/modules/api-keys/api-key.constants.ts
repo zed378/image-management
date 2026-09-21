@@ -21,11 +21,5 @@ export const MAX_API_KEY_NAME_LENGTH = 200;
 export const MAX_PERMISSIONS_PER_KEY = 64;
 export const MAX_PROJECTS_PER_KEY = 100;
 
-/**
- * `<resource>:<action>` or `<resource>:<scope>:<action>` (docs/ENGINEERING/01).
- * P1-04 replaces this shape check with the closed permission vocabulary.
- */
-export const PERMISSION_PATTERN = /^[a-z][a-z-]*(:[a-z][a-z-]*){1,2}$/u;
-
 /** last_used_at is written at most this often per key (P1-02 step 4). */
 export const LAST_USED_FLUSH_INTERVAL_MS = 60_000;

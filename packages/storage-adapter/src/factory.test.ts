@@ -57,5 +57,9 @@ describe("createStorageAdapter", () => {
       expect(adapter.provider).toBe(provider);
       await adapter.close();
     },
+    // The first dynamic import of a provider SDK (Azure's is large) can take
+    // several seconds while the whole suite runs in parallel; production pays
+    // it once at startup.
+    30_000,
   );
 });

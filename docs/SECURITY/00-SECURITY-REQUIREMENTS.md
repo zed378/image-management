@@ -72,9 +72,9 @@ Detail: [`07-AUTHORIZATION.md`](./07-AUTHORIZATION.md),
 
 | ID | Level | Requirement | Enforced by | Status |
 |---|---|---|---|---|
-| SEC-AZ-01 | MUST | Every route SHALL declare the permission it requires; a route without a declaration SHALL fail to register. | test | Done (P1-03: route contract); matrix P1-04 |
-| SEC-AZ-02 | MUST | Authorization SHALL be two checks: a permission gate on the action and a scoped query on the row. Neither alone is sufficient. | test | P1-04 |
-| SEC-AZ-03 | MUST | Default role grants SHALL be least-privilege; no role other than owner may manage credentials or members. | test | P1-04 |
+| SEC-AZ-01 | MUST | Every route SHALL declare the permission it requires; a route without a declaration SHALL fail to register. | test | Done (P1-03 route contract, P1-04 closed vocabulary) |
+| SEC-AZ-02 | MUST | Authorization SHALL be two checks: a permission gate on the action and a scoped query on the row. Neither alone is sufficient. | test | Gate done (P1-03/04); row check per module (P1-05) |
+| SEC-AZ-03 | MUST | Default role grants SHALL be least-privilege; no role other than owner may manage credentials or members. | test | Done (P1-04, tested) |
 
 ## 4. Signed URLs and private delivery
 

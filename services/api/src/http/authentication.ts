@@ -3,7 +3,7 @@ import { AppError } from "@image-delivery/errors";
 import { createFailureLimiter, type FailureLimiter } from "./failure-limiter";
 
 import type { ApiKeyPrincipal } from "../modules/api-keys/api-key.types";
-import type { TenantContext } from "@image-delivery/tenancy";
+import type { Permission, TenantContext } from "@image-delivery/tenancy";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 // Authentication and the route contract for everything under /v1
@@ -23,8 +23,8 @@ declare module "fastify" {
   interface FastifyContextConfig {
     /** Reachable without a credential. Rare; each one is listed in docs/API/02. */
     public?: boolean;
-    /** The permission a credential must hold (the P1-04 vocabulary). */
-    permission?: string;
+    /** The permission a credential must hold (the closed P1-04 vocabulary). */
+    permission?: Permission;
   }
   interface FastifyRequest {
     /** Set for every authenticated request; null only on a public route. */
@@ -52,7 +52,10 @@ export const toTenantContext = (principal: ApiKeyPrincipal, requestId: string): 
 });
 
 /** Throws permission_denied unless the request's context holds `permission`. */
-export const requirePermission = (request: FastifyRequest, permission: string): TenantContext => {
+export const requirePermission = (
+  request: FastifyRequest,
+  permission: Permission,
+): TenantContext => {
   const ctx = request.tenant;
   if (!ctx) throw new AppError("authentication_required");
   if (!ctx.permissions.has(permission)) throw new AppError("permission_denied");

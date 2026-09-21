@@ -4,13 +4,18 @@ packages:
   - apps/*
   - sdks/*
 
-# Native binaries (sharp/libvips, esbuild) and the git-hook installer ship
-# through install scripts. Everything else is denied by default.
+# Install scripts are denied unless listed true here. Native binaries
+# (sharp/libvips, esbuild) and the git-hook installer need theirs.
 allowBuilds:
   esbuild: true
   sharp: true
   simple-git-hooks: true
   unrs-resolver: true
+  # testcontainers' optional SSH transport -- unused, Docker is reached
+  # through the local socket/named pipe.
+  cpu-features: false
+  ssh2: false
+  protobufjs: false
 
 minimumReleaseAgeExclude:
   - dependency-cruiser@18.4.0

@@ -1,0 +1,80 @@
+# Local infrastructure for development (P0-02, docs/DEVOPS/00-ENVIRONMENT.md).
+#
+#   docker compose -f deploy/docker-compose.yml up -d --wait
+#
+# Host ports are deliberately non-default (5xxxx) so this stack never
+# collides with a PostgreSQL or Redis already running on the developer's
+# machine. Credentials are for local use only and are never reused anywhere.
+name: image-delivery
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: image_delivery
+      POSTGRES_PASSWORD: image_delivery_dev
+      POSTGRES_DB: image_delivery
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U image_delivery -d image_delivery"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    # AOF persistence: the queue lives in Redis, and a restart must not
+    # silently drop pending derivative or webhook jobs (ADR-007).
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "56379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  minio:
+    # S3-compatible object storage for local development (ADR-002). Pinned to
+    # a specific release on quay.io: the minio/minio Docker Hub repository no
+    # longer exists (verified 2026-09-21).
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: image_delivery
+      MINIO_ROOT_PASSWORD: image_delivery_dev
+    ports:
+      - "59000:9000"
+      - "59001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  minio-init:
+    # One-shot: create the development bucket, then exit.
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 image_delivery image_delivery_dev &&
+        mc mb --ignore-existing local/image-delivery-dev &&
+        echo "bucket ready"
+    restart: "no"
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

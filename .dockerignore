@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+.git
+.env
+.env.*
+docs
+MEMORY
+TASKS
+apps
+sdks
+*.md

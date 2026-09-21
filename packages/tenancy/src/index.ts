@@ -1,2 +1,2 @@
 // TenantContext, permissions and the RBAC matrix (P1-04).
-export const tenancyPackageName = "@image-delivery/tenancy";
+export { inProject, systemContext, type Actor, type TenantContext } from "./context";

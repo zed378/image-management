@@ -213,6 +213,9 @@ importers:
       '@image-delivery/storage-adapter':
         specifier: workspace:*
         version: link:../../packages/storage-adapter
+      '@image-delivery/tenancy':
+        specifier: workspace:*
+        version: link:../../packages/tenancy
       fastify:
         specifier: ^5.12.5
         version: 5.12.5
@@ -241,6 +244,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@image-delivery/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       '@testcontainers/postgresql':
         specifier: ^12.1.0
         version: 12.1.0(supports-color@7.2.0)

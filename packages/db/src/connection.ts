@@ -1,4 +1,4 @@
-import { Kysely, PostgresDialect } from "kysely";
+import { Kysely, PostgresDialect, type Transaction } from "kysely";
 import pg from "pg";
 
 import type { Database } from "./types";
@@ -23,6 +23,10 @@ export type DbOptions = {
 };
 
 export type Db = Kysely<Database>;
+/** A transaction handle; repositories accept one and use it when given. */
+export type Tx = Transaction<Database>;
+/** Anything a query can run on. */
+export type Executor = Db | Tx;
 
 /**
  * The only way to obtain a database handle. Every connection gets a

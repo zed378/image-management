@@ -12,8 +12,8 @@ authorization check in a controller is one forgotten `where` clause away
 from a cross-tenant leak. That decision is only real if the query layer
 makes the mistake unexpressible -- which is what `scoped()` is for.
 
-The concrete query tool is chosen in `P0-06`. Everything here is a contract
-that choice must satisfy.
+The query tool is Kysely (`P0-06`, ADR-019); `scoped()` exists since
+`P1-02` (built ahead of `P1-05` so the first repository could use it).
 
 ## `scoped()` -- the only door
 
@@ -39,11 +39,16 @@ export type TenantOwnedTable = keyof typeof TENANT_OWNED_TABLES;
  * Injects the tenant (and project, where the table has one) predicate
  * into SELECT, UPDATE, and DELETE, and the columns into INSERT.
  */
-export const scoped = <TRow>(
-  ctx: TenantContext,
-  table: TenantOwnedTable,
-  tx?: Tx,
-): ScopedQuery<TRow> => { /* ... */ };
+export const scoped = (executor: Executor, ctx: ScopeContext) => ({
+  selectFrom, updateTable, deleteFrom, insertInto, // each scoped by construction
+});
+
+// usage, in a repository:
+const row = await scoped(tx ?? db, ctx)
+  .selectFrom("api_keys")
+  .select(COLUMNS)
+  .where("id", "=", keyId)
+  .executeTakeFirst();
 ```
 
 Properties the implementation MUST have -- these are the acceptance criteria
@@ -86,20 +91,22 @@ for `P0-06`'s choice, and for the `P1-05` task that builds it:
 
 ## The escape hatch
 
-Some code legitimately crosses tenants: tenant provisioning, the admin API
-(`docs/API/20-ADMIN-API.md`), usage aggregation, the orphan sweeper.
+Some code legitimately crosses tenants: authenticating a credential before
+any tenant is known, tenant provisioning, the admin API
+(`docs/API/20-ADMIN-API.md`), usage aggregation, retention purges.
 
 ```ts
-/**
- * Bypasses tenant scoping. Every call site must name a reason, which is
- * logged at warn level. Banned in services/* by lint; permitted only in
- * admin and maintenance contexts, each with a test proving a non-admin
- * caller is rejected.
- */
-export const unsafeUnscoped = <TRow>(
-  table: string,
-  reason: UnscopedReason,
-): Query<TRow> => { /* ... */ };
+// packages/db/src/scoped.ts
+export type UnscopedReason =
+  | "authenticate-credential" // find a key by its public id (P1-02)
+  | "record-credential-use"   // batch-write last_used_at (P1-02)
+  | "tenant-provisioning"     // create a tenant (operator CLI)
+  | "usage-aggregation"
+  | "retention-purge"
+  | "admin-api";
+
+/** Bypasses tenant scoping. Deliberately ugly and greppable. */
+export const unsafeUnscoped = (executor: Executor, reason: UnscopedReason): Executor;
 ```
 
 Rules:
@@ -108,11 +115,32 @@ Rules:
   diff, and it should be greppable in an audit.
 - `UnscopedReason` is a closed union, not a string. A new reason is a
   reviewed change.
-- Every call site: an explicit permission check, an audit log entry
-  (`docs/SECURITY/`), and a test that a caller without that permission is
+- **Admin and maintenance call sites** (`admin-api`, `usage-aggregation`,
+  `retention-purge`): an explicit permission check, an audit log entry
+  (`docs/SECURITY/17`), and a test that a caller without that permission is
   rejected.
-- Banned in `services/*` by lint; permitted in the admin surface and
-  `jobs/maintenance/*`.
+- **Credential call sites** (`authenticate-credential`,
+  `record-credential-use`): the query is keyed by the id the presented
+  credential carries, and the tenant comes *out* of the row -- a caller
+  cannot choose it. These run on every request, so they are not
+  individually logged or audited; failures are logged by the
+  authentication hook. They live in `*.authentication.ts`, never in a
+  `*.repository.ts` or `*.service.ts`.
+- Banned by lint in `**/*.service.ts` and `modules/**/*.repository.ts`
+  (`eslint.config.js`, proven in `tools/tests/lint-rules.test.ts`).
+
+## How scoped() is built
+
+`scoped(executor, ctx)` returns `selectFrom`, `updateTable`, `deleteFrom`
+and `insertInto`, each carrying a Kysely plugin that rewrites the **final**
+query tree at execution time: it ANDs `table.tenant_id = ctx.tenantId`
+(and `project_id` for project-owned tables) onto SELECT/UPDATE/DELETE, and
+rejects an INSERT whose rows do not carry the context's ids. Because it runs
+after the builder is finished, neither a chained `.where()` nor
+`.clearWhere()` nor a replaced `.values()` can remove it
+(`packages/db/src/scoped.test.ts` checks the compiled SQL of each case).
+Joined tables are not scoped separately: join them on their composite keys
+(`(id, tenant_id)`), which the schema guarantees agree.
 
 ## Schema standards
 

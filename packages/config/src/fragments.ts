@@ -34,6 +34,31 @@ export const redisFragment = {
   REDIS_URL: z.string().regex(/^rediss?:\/\//, "must be a redis:// or rediss:// URL"),
 };
 
+/** The prefix of the example pepper in .env.example; refused in production. */
+export const DEV_PEPPER_PREFIX = "dev-only-";
+
+export const credentialsFragment = {
+  /**
+   * HMAC key for API-key secret hashes (ADR-022 point 4, docs/DEVOPS/04).
+   * A deployment secret: rotating it invalidates every issued key.
+   */
+  API_KEY_PEPPER: z.string().min(32, "must be at least 32 characters"),
+};
+
+/** Production must not run on the published example pepper. */
+export const refineCredentials = (
+  env: { NODE_ENV?: string | undefined; API_KEY_PEPPER: string },
+  ctx: z.RefinementCtx,
+): void => {
+  if (env.NODE_ENV === "production" && env.API_KEY_PEPPER.startsWith(DEV_PEPPER_PREFIX)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["API_KEY_PEPPER"],
+      message: "is the example value; set a random secret in production",
+    });
+  }
+};
+
 /** ADR-021: local disk is the default; network filesystems (NFS, SMB, EFS) mount as `local`. */
 export const STORAGE_PROVIDERS = ["local", "s3", "azure-blob", "sftp", "webdav"] as const;
 export type StorageProviderName = (typeof STORAGE_PROVIDERS)[number];
@@ -234,8 +259,20 @@ export const toDatabaseConfig = (env: {
 
 export const toRedisConfig = (env: { REDIS_URL: string }): RedisConfig => ({ url: env.REDIS_URL });
 
-// refineStorage has already guaranteed every required value for the chosen
-// provider; the `?? ""` fallbacks below are unreachable by construction.
+/**
+ * refineStorage guarantees every value the chosen provider needs, so this
+ * never throws for a parsed configuration; it throws (rather than inventing
+ * an empty string) if a caller skips refineStorage.
+ */
+const present = <T>(value: T | undefined, variable: keyof StorageEnv): T => {
+  if (value === undefined) {
+    throw new Error(
+      `toStorageConfig: ${variable} is missing; was the env refined with refineStorage?`,
+    );
+  }
+  return value;
+};
+
 export const toStorageConfig = (env: StorageEnv): StorageConfig => {
   switch (env.STORAGE_PROVIDER) {
     case "local":
@@ -243,10 +280,10 @@ export const toStorageConfig = (env: StorageEnv): StorageConfig => {
     case "s3":
       return {
         provider: "s3",
-        bucket: env.STORAGE_S3_BUCKET ?? "",
-        region: env.STORAGE_S3_REGION ?? "us-east-1",
+        bucket: present(env.STORAGE_S3_BUCKET, "STORAGE_S3_BUCKET"),
+        region: present(env.STORAGE_S3_REGION, "STORAGE_S3_REGION"),
         endpoint: env.STORAGE_S3_ENDPOINT,
-        forcePathStyle: env.STORAGE_S3_FORCE_PATH_STYLE ?? false,
+        forcePathStyle: present(env.STORAGE_S3_FORCE_PATH_STYLE, "STORAGE_S3_FORCE_PATH_STYLE"),
         credentials:
           env.STORAGE_S3_ACCESS_KEY_ID && env.STORAGE_S3_SECRET_ACCESS_KEY
             ? {
@@ -258,29 +295,29 @@ export const toStorageConfig = (env: StorageEnv): StorageConfig => {
     case "azure-blob":
       return {
         provider: "azure-blob",
-        accountName: env.STORAGE_AZURE_ACCOUNT_NAME ?? "",
-        accountKey: env.STORAGE_AZURE_ACCOUNT_KEY ?? "",
-        container: env.STORAGE_AZURE_CONTAINER ?? "",
+        accountName: present(env.STORAGE_AZURE_ACCOUNT_NAME, "STORAGE_AZURE_ACCOUNT_NAME"),
+        accountKey: present(env.STORAGE_AZURE_ACCOUNT_KEY, "STORAGE_AZURE_ACCOUNT_KEY"),
+        container: present(env.STORAGE_AZURE_CONTAINER, "STORAGE_AZURE_CONTAINER"),
         endpoint: env.STORAGE_AZURE_ENDPOINT,
       };
     case "sftp":
       return {
         provider: "sftp",
-        host: env.STORAGE_SFTP_HOST ?? "",
-        port: env.STORAGE_SFTP_PORT ?? 22,
-        username: env.STORAGE_SFTP_USERNAME ?? "",
+        host: present(env.STORAGE_SFTP_HOST, "STORAGE_SFTP_HOST"),
+        port: present(env.STORAGE_SFTP_PORT, "STORAGE_SFTP_PORT"),
+        username: present(env.STORAGE_SFTP_USERNAME, "STORAGE_SFTP_USERNAME"),
         password: env.STORAGE_SFTP_PASSWORD,
         privateKey: env.STORAGE_SFTP_PRIVATE_KEY?.split(String.raw`\n`).join("\n"),
-        root: env.STORAGE_SFTP_ROOT ?? "/",
+        root: present(env.STORAGE_SFTP_ROOT, "STORAGE_SFTP_ROOT"),
         hostKeySha256: env.STORAGE_SFTP_HOST_KEY_SHA256,
       };
     case "webdav":
       return {
         provider: "webdav",
-        url: env.STORAGE_WEBDAV_URL ?? "",
+        url: present(env.STORAGE_WEBDAV_URL, "STORAGE_WEBDAV_URL"),
         username: env.STORAGE_WEBDAV_USERNAME,
         password: env.STORAGE_WEBDAV_PASSWORD,
-        root: env.STORAGE_WEBDAV_ROOT ?? "/",
+        root: present(env.STORAGE_WEBDAV_ROOT, "STORAGE_WEBDAV_ROOT"),
       };
   }
 };

@@ -54,6 +54,12 @@ export default defineConfig(
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
+      // Same convention as tsc's noUnusedParameters: a leading underscore
+      // marks a parameter kept for its type or its documentation value.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "all" },
+      ],
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
       "@typescript-eslint/await-thenable": "error",

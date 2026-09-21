@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import {
+  credentialsFragment,
   databaseFragment,
   parseConfig,
+  refineCredentials,
   processFragment,
   redisFragment,
   refineStorage,
@@ -24,10 +26,14 @@ const apiEnvSchema = z
     ...databaseFragment,
     ...redisFragment,
     ...storageFragment,
+    ...credentialsFragment,
     HTTP_HOST: z.string().min(1).default("0.0.0.0"),
     HTTP_PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   })
-  .superRefine(refineStorage);
+  .superRefine((env, ctx) => {
+    refineStorage(env, ctx);
+    refineCredentials(env, ctx);
+  });
 
 export type ApiConfig = {
   readonly process: ProcessConfig;
@@ -35,6 +41,7 @@ export type ApiConfig = {
   readonly redis: RedisConfig;
   readonly storage: StorageConfig;
   readonly http: { readonly host: string; readonly port: number };
+  readonly credentials: { readonly apiKeyPepper: string };
 };
 
 export const loadApiConfig = (env: RawEnv): ApiConfig => {
@@ -45,5 +52,6 @@ export const loadApiConfig = (env: RawEnv): ApiConfig => {
     redis: toRedisConfig(e),
     storage: toStorageConfig(e),
     http: { host: e.HTTP_HOST, port: e.HTTP_PORT },
+    credentials: { apiKeyPepper: e.API_KEY_PEPPER },
   };
 };

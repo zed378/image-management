@@ -22,6 +22,7 @@
     "@image-delivery/logger": "workspace:*",
     "@image-delivery/schema": "workspace:*",
     "@image-delivery/storage-adapter": "workspace:*",
+    "@image-delivery/tenancy": "workspace:*",
     "fastify": "^5.12.5",
     "ioredis": "^6.0.0",
     "kysely": "^0.29.6",
@@ -33,6 +34,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@image-delivery/test-utils": "workspace:*",
     "@testcontainers/postgresql": "^12.1.0",
     "@testcontainers/redis": "^12.1.0"
   }

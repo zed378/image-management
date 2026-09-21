@@ -15,7 +15,7 @@ export default defineConfig({
         // Process entry points and their env loading: exercised by
         // services/*/tests/boot.test.ts in a child process, which v8
         // coverage in this process cannot see.
-        "services/*/src/{server,migrate,config}.ts",
+        "services/*/src/{server,migrate,provision,config}.ts",
         // Test infrastructure, not product code.
         "packages/test-utils/**",
       ],

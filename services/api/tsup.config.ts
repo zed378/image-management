@@ -5,7 +5,7 @@ import { defineConfig } from "tsup";
 // several ship native binaries (sharp, ssh2) that cannot be bundled, and the
 // Docker image installs them with `pnpm deploy --prod`.
 export default defineConfig({
-  entry: ["src/server.ts", "src/migrate.ts"],
+  entry: ["src/server.ts", "src/migrate.ts", "src/provision.ts"],
   format: ["esm"],
   platform: "node",
   target: "node24",

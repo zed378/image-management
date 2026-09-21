@@ -21,7 +21,7 @@ migrations, backup/restore, and disaster recovery.
 | Database password | inside `DATABASE_URL` | on compromise, and on staff change |
 | Redis password | inside `REDIS_URL` (when set) | as above |
 | Storage credentials | `STORAGE_S3_ACCESS_KEY_ID` / `STORAGE_S3_SECRET_ACCESS_KEY` | 90 days, or use an IAM role and have none |
-| API-key pepper | added by `P1-02` | rare; changes every stored key hash |
+| API-key pepper | `API_KEY_PEPPER` (api, provision) | only on suspected compromise: every issued key stops working, so rotation is a planned re-issue of all keys (see below) |
 | Signed-URL secrets | per application, in the database (`P5-02`) | per application, self-service |
 | Webhook signing secrets | per endpoint, in the database (`P6-03`) | per endpoint, self-service |
 
@@ -84,7 +84,11 @@ rotation, not just deletion.
 
 ## Open Questions
 
-- The rotation cadence for the API-key pepper is settled in `P1-02`.
+- Resolved (`P1-02`): the pepper is not rotated on a schedule. It is an
+  HMAC key over 256-bit random secrets, so its compromise alone does not
+  reveal any key; rotating it invalidates every key at once. On suspected
+  compromise: set the new pepper, and have every application re-issue its
+  keys (the platform has no way to re-hash a secret it never stored).
 - Encryption-at-rest for per-application signing secrets is designed in
   `P5-02`.
 

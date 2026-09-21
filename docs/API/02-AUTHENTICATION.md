@@ -1,35 +1,84 @@
 # 02 - Authentication
 
-> Category: **API Contract** (`docs/API/`) &nbsp;|&nbsp; Status: Draft specification &nbsp;|&nbsp; Owner: TBD
+> Category: **API Contract** (`docs/API/`) &nbsp;|&nbsp; Status: Final (v1) &nbsp;|&nbsp; Owner: TBD
 
 ## Purpose
 
-Specify authentication for the Image Management & Delivery Platform. The platform is API-first.
+How a client proves who it is to the `/v1` API. Server-to-server clients
+use an API key; the dashboard's user sessions are specified with the
+dashboard (`P6-09`).
 
 ## Category Mandate
 
-The platform is API-first. Every capability exposed to a consumer application is defined here as a versioned, documented HTTP contract before it is implemented. These documents are the source of truth for request/response shapes, status codes, and error formats -- SDKs and the dashboard are clients of this contract, not the other way around.
+The platform is API-first. Every capability exposed to a consumer
+application is defined here as a versioned, documented HTTP contract before
+it is implemented. These documents are the source of truth for
+request/response shapes, status codes, and error formats -- SDKs and the
+dashboard are clients of this contract, not the other way around.
 
-## Key Topics To Specify
+---
 
-- Define the concrete rules for authentication -- concepts alone are not sufficient; every rule must be specific enough to write a test against.
-- State explicit defaults for every configurable value related to authentication.
-- Note every place in the codebase / other documents that must stay consistent with this document if it changes.
+## Presenting a key
+
+```http
+GET /v1/applications/01J8.../api-keys HTTP/1.1
+Authorization: Bearer ak_live_01J8Z3K4M5N6P7Q8R9S0T1V2W3_q7Xc0cKf2Qn9V-1s3oZkqj0l8m2nBv6x4AR5eT9uYw0
+```
+
+- The scheme is `Bearer` (case-insensitive), followed by exactly one space
+  and the key. The key format is in `docs/SECURITY/04`.
+- The key is accepted **only** in the `Authorization` header -- never in a
+  query parameter, where it would land in access logs, browser history and
+  `Referer` headers.
+- Every `/v1` route requires a key unless it is explicitly declared public
+  (opt-out, not opt-in; `P1-03`). `/healthz` and `/readyz` are outside `/v1`
+  and public.
+
+## Responses
+
+| Situation | Status | `error.code` |
+|---|---|---|
+| No `Authorization` header, or not `Bearer` | `401` | `authentication_required` |
+| A key that is malformed, unknown, wrong, expired, revoked, suspended, of the wrong environment, or of a suspended application/tenant | `401` | `api_key_invalid` -- one answer for all, so the response is not an oracle (`SEC-AUTH-04`) |
+| An authenticated key without the permission the route needs | `403` | `permission_denied` |
+| An authenticated key, a resource that is another tenant's or does not exist | `404` | the resource's `*_not_found` (`SEC-TEN-03`) |
+
+`401` responses carry `WWW-Authenticate: Bearer realm="api"` (RFC 6750).
+`401` means "who are you?"; `403` means "I know who you are, and no" --
+the distinction is kept exact (`P1-03`).
+
+## What a key grants
+
+A verified key yields its tenant, its application, its permission list, and
+its project coverage (every project of the application, or a listed
+subset). A request for a project outside that coverage is `404
+project_not_found`, not `403`: a key cannot learn that another project
+exists.
+
+## Managing keys
+
+| Method and path | Purpose |
+|---|---|
+| `POST /v1/applications/{application_id}/api-keys` | Issue a key; the response carries the plaintext `key`, once |
+| `GET /v1/applications/{application_id}/api-keys` | List keys (prefix, never the secret or a hash) |
+| `GET /v1/applications/{application_id}/api-keys/{key_id}` | One key |
+| `POST /v1/applications/{application_id}/api-keys/{key_id}/rotate` | Issue a replacement; the old key expires after `overlap_seconds` (default 86400, max 604800) |
+| `POST /v1/applications/{application_id}/api-keys/{key_id}/revoke` | Revoke immediately |
+
+Request and response shapes are the key-management module's schemas
+(`services/api/src/modules/api-keys/api-key.schema.ts`, `api-key.types.ts`
+`ApiKeyWire`); the HTTP routes are mounted by `P1-03`, behind
+authentication. The first key of an installation comes from the operator
+`provision` command (`docs/SECURITY/04` "Issuance").
 
 ## Acceptance Criteria
 
-- [ ] The document states every default value explicitly -- nothing is left to "whatever the library does".
-- [ ] Every rule in this document is either testable by an automated test or explicitly marked as a manual/operational check.
-- [ ] Cross-references to related documents are correct and bidirectional (the related document links back here).
-
-## Open Questions
-
-- Confirm this against the current PLAN/17-PRICING-ENTITLEMENT.md tiering before implementation starts.
-- Flag any decision here that should be promoted to a MEMORY/DECISIONS.md ADR once made.
+- [x] The header scheme, where a key may and may not appear, and every
+      failure's status and code are stated.
+- [x] Each failure mode maps to a registered code (`docs/API/05`).
 
 ## Related Documents
 
-- `docs/API/README.md` (category index)
-- `docs/PLAN/01-PRODUCT-REQUIREMENTS.md` (traces every requirement back here)
-- `TASKS/` (the phase and task that implements this document)
-- `MEMORY/DECISIONS.md` (record the decision here once made, don't leave it only in this file)
+- `docs/SECURITY/03-AUTHENTICATION.md`, `04-API-KEY-MANAGEMENT.md`
+- `docs/API/05-ERROR-HANDLING.md`
+- `docs/DATABASE/13-API-KEYS.md`

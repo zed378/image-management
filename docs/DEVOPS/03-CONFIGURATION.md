@@ -143,6 +143,10 @@ Provider-specific requirements are cross-field rules, reported as
 |---|---|---|
 | `HTTP_HOST` | no | `0.0.0.0` |
 | `HTTP_PORT` | no | `3000` |
+| `API_KEY_PEPPER` | **yes** (secret) | -- (at least 32 characters; a `dev-only-` value is refused in production) |
+
+`API_KEY_PEPPER` is also read by the `provision` command
+(`node dist/provision.js`), which needs only it and `DATABASE_URL`.
 
 ### `worker` only
 

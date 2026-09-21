@@ -24,7 +24,8 @@
     "db:migrate": "tsx services/api/src/migrate.ts",
     "audit:deps": "pnpm audit --audit-level=high",
     "scan:secrets": "docker run --rm -v \"$PWD:/repo\" zricethezav/gitleaks:v8.28.0 git /repo --no-banner --redact --config /repo/.gitleaks.toml",
-    "prepare": "simple-git-hooks"
+    "prepare": "simple-git-hooks",
+    "provision": "tsx services/api/src/provision.ts"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged",

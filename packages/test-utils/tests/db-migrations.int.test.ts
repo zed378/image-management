@@ -71,6 +71,23 @@ describe("migrations", () => {
   });
 });
 
+describe("a failing migration", () => {
+  it("reports which migration failed and applies nothing after it", async () => {
+    const t = await createTestDatabase(inject("postgresAdminUrl"), { migrate: false });
+    try {
+      // A table in the way makes the first migration fail part-way.
+      await sql`create table tenants (id int)`.execute(t.db);
+
+      await expect(migrateToLatest(t.db)).rejects.toThrow(
+        /migration 20260921T0900_create_tenancy_chain failed/,
+      );
+      expect(await tableNames(t)).not.toContain("assets");
+    } finally {
+      await t.destroy();
+    }
+  });
+});
+
 describe("tenancy chain schema", () => {
   let t: TestDatabase;
 

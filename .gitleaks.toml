@@ -14,4 +14,6 @@ regexes = [
   '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
   # The throwaway MinIO credentials given to the Testcontainers MinIO.
   '''test_secret_key_0123456789''',
+  # The fake API-key pepper the test suites use (P1-02); never deployed.
+  '''test-pepper-0123456789abcdef0123456789abcdef''',
 ]

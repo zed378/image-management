@@ -13,10 +13,14 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../
 const tsxLoader = import.meta.resolve("tsx/esm");
 
 // Storage defaults to local disk (ADR-021), so only these are required
-// outside production.
-const REQUIRED = {
+// outside production. The api additionally needs the API-key pepper.
+const SHARED = {
   DATABASE_URL: "postgres://u:p@localhost:5432/db",
   REDIS_URL: "redis://localhost:6379",
+} as const;
+const REQUIRED_BY = {
+  api: { ...SHARED, API_KEY_PEPPER: "test-pepper-0123456789abcdef0123456789abcdef" },
+  worker: SHARED,
 } as const;
 
 // --check-config validates and exits, so a valid configuration does not leave
@@ -41,6 +45,8 @@ const boot = (service: "api" | "worker", env: Record<string, string>) =>
 
 // Spawning a TypeScript entry point is slow on Windows; allow for it.
 describe.each(["api", "worker"] as const)("%s service boot", { timeout: 60_000 }, (service) => {
+  const REQUIRED: Record<string, string> = REQUIRED_BY[service];
+
   it("starts when every required variable is present", () => {
     const result = boot(service, REQUIRED);
 
@@ -64,4 +70,18 @@ describe.each(["api", "worker"] as const)("%s service boot", { timeout: 60_000 }
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("STORAGE_LOCAL_ROOT");
   });
+
+  if (service === "api") {
+    it("refuses to start in production on the example API-key pepper", () => {
+      const result = boot(service, {
+        ...REQUIRED,
+        NODE_ENV: "production",
+        STORAGE_LOCAL_ROOT: "/srv/images",
+        API_KEY_PEPPER: "dev-only-pepper-0123456789abcdef0123456789",
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("API_KEY_PEPPER");
+    });
+  }
 });

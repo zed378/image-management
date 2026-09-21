@@ -7,9 +7,12 @@ import { z } from "zod";
 
 import { ConfigError } from "./config-error";
 import {
+  credentialsFragment,
   databaseFragment,
+  DEV_PEPPER_PREFIX,
   processFragment,
   redisFragment,
+  refineCredentials,
   refineStorage,
   storageFragment,
   toStorageConfig,
@@ -347,5 +350,50 @@ describe("withDotEnv", () => {
     const env = withDotEnv({ LOG_LEVEL: "warn" }, path.join(tmpdir(), "does-not-exist", ".env"));
 
     expect(env).toEqual({ LOG_LEVEL: "warn" });
+  });
+});
+
+describe("toStorageConfig", () => {
+  it("refuses an env that skipped refineStorage rather than invent an empty value", () => {
+    expect(() => toStorageConfig({ STORAGE_PROVIDER: "s3" })).toThrow(
+      /STORAGE_S3_BUCKET is missing/,
+    );
+  });
+});
+
+describe("refineCredentials", () => {
+  const credentialSchema = z
+    .object({ ...processFragment, ...credentialsFragment })
+    .superRefine(refineCredentials);
+  const EXAMPLE = `${DEV_PEPPER_PREFIX}api-key-pepper-change-me-in-production`;
+
+  it("accepts the example pepper outside production", () => {
+    expect(parseConfig(credentialSchema, { API_KEY_PEPPER: EXAMPLE }).API_KEY_PEPPER).toBe(EXAMPLE);
+  });
+
+  it("refuses the example pepper in production, without echoing it", () => {
+    const error = configErrorOf(() =>
+      parseConfig(credentialSchema, { NODE_ENV: "production", API_KEY_PEPPER: EXAMPLE }),
+    );
+
+    expect(error.issues).toContainEqual({
+      variable: "API_KEY_PEPPER",
+      reason: "is the example value; set a random secret in production",
+    });
+    expect(error.message).not.toContain(EXAMPLE);
+  });
+
+  it("accepts a real pepper in production and refuses a short one anywhere", () => {
+    const real = "q7Xc0cKf2Qn9V1s3oZkqj0l8m2nBv6x4AR5eT9uYw0Zz";
+
+    expect(
+      parseConfig(credentialSchema, { NODE_ENV: "production", API_KEY_PEPPER: real })
+        .API_KEY_PEPPER,
+    ).toBe(real);
+    expect(
+      configErrorOf(() => parseConfig(credentialSchema, { API_KEY_PEPPER: "short" })).issues.map(
+        (i) => i.variable,
+      ),
+    ).toContain("API_KEY_PEPPER");
   });
 });

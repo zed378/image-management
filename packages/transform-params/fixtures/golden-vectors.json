@@ -1,0 +1,94 @@
+{
+  "source": {
+    "width": 4000,
+    "height": 3000,
+    "orientation": 0
+  },
+  "vectors": [
+    {
+      "query": "w=800&h=600&fit=cover&g=center&q=80&f=auto",
+      "acceptBucket": "avif",
+      "canonical": "dpr=1&f=avif&fit=cover&g=center&h=600&q=80&w=800",
+      "paramsHash": "8307391ea584357bf6f8f2f6834fda8e"
+    },
+    {
+      "query": "w=800&h=600&fit=cover&g=center&q=80&f=auto",
+      "acceptBucket": "webp",
+      "canonical": "dpr=1&f=webp&fit=cover&g=center&h=600&q=80&w=800",
+      "paramsHash": "fe14014ca4fc21dc18627fd488460634"
+    },
+    {
+      "query": "w=800&h=600&fit=cover&g=center&q=80&f=auto",
+      "acceptBucket": "jpeg",
+      "canonical": "dpr=1&f=jpeg&fit=cover&g=center&h=600&q=80&w=800",
+      "paramsHash": "6d2f9b20c4d959e9007ba4da630c3534"
+    },
+    {
+      "query": "w=800",
+      "acceptBucket": "avif",
+      "canonical": "dpr=1&f=avif&fit=scale-down&q=50&w=800",
+      "paramsHash": "b27fdcf7e1639b6b2c8f77b3bb961dea"
+    },
+    {
+      "query": "w=640&fit=scale-down",
+      "acceptBucket": "webp",
+      "canonical": "dpr=1&f=webp&fit=scale-down&q=75&w=640",
+      "paramsHash": "4a3a81ef85e0ea3f86da38da4c917d1e"
+    },
+    {
+      "query": "h=300&ar=16:9&fit=cover",
+      "acceptBucket": "jpeg",
+      "canonical": "dpr=1&f=jpeg&fit=cover&g=center&h=300&q=80&w=533",
+      "paramsHash": "79746867877eefac406185c9a20d3134"
+    },
+    {
+      "query": "w=400&h=400&fit=contain&f=png",
+      "acceptBucket": "avif",
+      "canonical": "bg=00000000&dpr=1&f=png&fit=contain&g=center&h=400&w=400",
+      "paramsHash": "807b5765ef69a516dd514f57b3ae0868"
+    },
+    {
+      "query": "w=400&h=400&fit=contain&bg=white&f=jpeg",
+      "acceptBucket": "avif",
+      "canonical": "bg=FFFFFF&dpr=1&f=jpeg&fit=contain&g=center&h=400&q=80&w=400",
+      "paramsHash": "7d8b4f62ddd4c0399a8f7677cc42c7e5"
+    },
+    {
+      "query": "w=1200&dpr=2&q=70&f=webp",
+      "acceptBucket": "jpeg",
+      "canonical": "dpr=2&f=webp&fit=scale-down&q=70&w=1200",
+      "paramsHash": "ae1aa93c35af26f3d5902c54af016170"
+    },
+    {
+      "query": "w=300&h=300&fit=cover&g=0.25,0.75",
+      "acceptBucket": "avif",
+      "canonical": "dpr=1&f=avif&fit=cover&g=0.25,0.75&h=300&q=50&w=300",
+      "paramsHash": "2a7b838134878374a6ebac252d55e52e"
+    },
+    {
+      "query": "blur=20&f=jpeg",
+      "acceptBucket": "avif",
+      "canonical": "blur=20&f=jpeg&q=80",
+      "paramsHash": "dd3d67d748a35eb33844fb97badb7cfd"
+    },
+    {
+      "query": "rect=100,100,800,600&w=400",
+      "acceptBucket": "webp",
+      "canonical": "dpr=1&f=webp&fit=scale-down&q=75&rect=100,100,800,600&w=400",
+      "paramsHash": "50f96d94c0e4ba2201b25cd5ccf3d1f3"
+    },
+    {
+      "query": "w=401",
+      "acceptBucket": "avif",
+      "dimensionLadder": true,
+      "canonical": "dpr=1&f=avif&fit=scale-down&q=50&w=640",
+      "paramsHash": "ae94b4d672c153c280118dd09a1a5794"
+    },
+    {
+      "query": "",
+      "acceptBucket": "jpeg",
+      "canonical": "f=jpeg&q=80",
+      "paramsHash": "1349d1293db7668b97ff462481fe9127"
+    }
+  ]
+}

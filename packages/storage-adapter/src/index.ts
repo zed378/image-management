@@ -21,6 +21,15 @@ export {
 export { createStorageAdapter } from "./factory";
 export { validateObjectKey, validatePrefix } from "./keys";
 export {
+  derivativeObjectKey,
+  derivativePrefix,
+  EXTENSION_BY_FORMAT,
+  EXTENSION_BY_MEDIA_TYPE,
+  originalObjectKey,
+  type DerivativeKeyParts,
+  type OriginalKeyParts,
+} from "./object-keys";
+export {
   PROXY_PATH,
   createProxyToken,
   verifyProxyToken,

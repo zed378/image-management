@@ -904,3 +904,44 @@ because several ship native binaries (sharp, ssh2).
   durations in `docs/DATABASE/18` are engineering defaults, each a config
   value, pending `docs/PLAN/16`/`17`. `docs/ENGINEERING/05`'s folder template
   error codes are reconciled when the templates are rewritten (`P1-02`).
+
+### ADR-023: The params_hash function, delivery parameters outside it, and the near-miss threshold
+- Status: Accepted
+- Date: 2026-09-21
+- Context: `P2-01` needs object keys, and object keys need `params_hash`.
+  ADR-004 fixed *that* one normalizer feeds every key, and ADR-014 that
+  versioned tables participate in the hash, but not the hash function, its
+  encoding, how the table versions enter it, whether delivery-only
+  parameters (`dl`, `exp`, `sig`) are part of it, or how IDP/03's
+  "edit distance <= 2" near-miss rule applies to one-letter names.
+- Decision:
+  1. `params_hash = hex(SHA-256("idp1|" + TABLES_VERSION + "|" + canonical))`
+     truncated to its first 32 hex characters (128 bits).
+     `TABLES_VERSION` is `q<quality>.l<ladder>.e<effects>.f<formats>`, one
+     version per versioned table (`packages/transform-params/src/constants.ts`);
+     bumping any table's version changes every hash that depends on it.
+     `idp1` versions the canonical form itself.
+  2. `dl` changes a header, `exp`/`sig` authorize: none changes the bytes, so
+     none is in the canonical transformation or the hash. They are returned
+     beside it (`delivery`, `signature`) for the delivery path and the CDN
+     key to use as they need.
+  3. Near-miss: a known name in a different case always; otherwise edit
+     distance <= 2 only for known names of 5+ characters, <= 1 for 3-4, and
+     never for 1-2 character names. A plain "<= 2" makes every short foreign
+     parameter a near-miss of `w`/`h`/`q`/`f`/`g` -- including IDP/03's own
+     examples of foreign parameters (`v`, `t`).
+  4. Canonical-form details the parameter table left open, now pinned by the
+     golden vectors: defaults are emitted only where they have an effect
+     (`fit`/`dpr` only when resizing; `g` only for `cover`/`contain`; `bg`
+     only for padding or flattening onto JPEG; no-op effects dropped);
+     `g=auto|face` resolve to `g=r:x,y,w,h`; a focal point is at most 4
+     decimals; `bg` is canonical upper-case hex (named colors resolved).
+- Alternatives considered: full 64-character hashes (rejected: 128 bits
+  cannot collide within this platform's lifetime, and keys are shorter);
+  BLAKE3 (no Node built-in); putting table versions in the canonical string
+  (rejected: they are not parameters and would appear in debugging output
+  as if a caller had sent them).
+- Consequences: The golden vectors (`packages/transform-params/fixtures`)
+  are append-only; changing any hash is a contract break needing a new ADR.
+  `P3-02` inherits a complete normalizer and tunes it against the
+  processing engine rather than writing it.

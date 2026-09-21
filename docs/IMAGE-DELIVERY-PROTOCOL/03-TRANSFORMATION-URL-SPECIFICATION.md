@@ -241,10 +241,10 @@ service (`ADR-004`, `ADR-009`).
 
 ## Open Questions
 
-- Near-miss detection uses edit distance <= 2. The threshold is a guess:
-  too tight misses real typos, too loose rejects a legitimate foreign
-  parameter. `P3-02` should tune it against the actual parameter vocabulary
-  and add a test for every known-name/near-miss pair.
+- Near-miss detection: tuned in `P2-01` (ADR-023) to "case difference
+  always; edit distance <= 2 for names of 5+ characters, <= 1 for 3-4, never
+  for 1-2" -- a flat <= 2 rejected `v` and `t`, this document's own examples
+  of foreign parameters. `P3-02` extends the test to every known-name pair.
 - Whether `X-Image-Ignored-Params` is emitted in production or only when a
   debug flag is present is a `P4-01` decision -- it is a response header on
   a cached object, so it interacts with the edge.

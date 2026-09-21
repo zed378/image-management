@@ -1,33 +1,41 @@
 # 02 - Application Model
 
-> Category: **Multi-Tenancy** (`docs/MULTI-TENANCY/`) &nbsp;|&nbsp; Status: Draft specification &nbsp;|&nbsp; Owner: TBD
+> Category: **Multi-Tenancy** (`docs/MULTI-TENANCY/`) &nbsp;|&nbsp; Status: Final (v1) &nbsp;|&nbsp; Owner: TBD
 
 ## Purpose
 
-Specify application model for the Image Management & Delivery Platform. Define the entity, its primary key strategy (ULID recommended for sortability), required columns, foreign keys, and the indexes needed for the query patterns this platform actually runs.
+An application is a tenant's product that consumes the platform. It is the
+unit that holds credentials: API keys (`P1-02`) and signed-URL secrets
+(`P5-02`) are issued per application.
 
 ## Category Mandate
 
-The platform is consumed by many independent applications (tenants), each with its own assets, quotas, and CDN configuration. Multi-tenancy is treated as a fundamental, load-bearing requirement, not an afterthought: a request scoped to Tenant A must never be able to read, modify, or enumerate Tenant B's resources under any circumstance.
+The platform is consumed by many independent tenants. A request scoped to
+Tenant A must never be able to read, modify, or enumerate Tenant B's
+resources under any circumstance.
 
-## Key Topics To Specify
+---
 
-- Define the entity, its primary key strategy (ULID recommended for sortability), required columns, foreign keys, and the indexes needed for the query patterns this platform actually runs.
+## Entity
+
+Table `applications` (`docs/DATABASE/03-APPLICATIONS.md`): ULID `id`,
+`tenant_id`, `name`, `slug` unique per tenant, `status`, timestamps.
+
+## Rules
+
+- **An API key belongs to exactly one application** and may be scoped to
+  some or all of that application's projects -- never to another
+  application's project, even within the same tenant.
+- **`(id, tenant_id)` is unique** so that projects and every other
+  application-owned table can reference it with a composite foreign key.
+- **Suspending an application** revokes its API access but not public
+  delivery of its projects' assets.
 
 ## Acceptance Criteria
 
-- [ ] The document states every default value explicitly -- nothing is left to "whatever the library does".
-- [ ] Every rule in this document is either testable by an automated test or explicitly marked as a manual/operational check.
-- [ ] Cross-references to related documents are correct and bidirectional (the related document links back here).
-
-## Open Questions
-
-- Confirm this against the current PLAN/17-PRICING-ENTITLEMENT.md tiering before implementation starts.
-- Flag any decision here that should be promoted to a MEMORY/DECISIONS.md ADR once made.
+- [x] Entity matches the migration; rules name their enforcement.
 
 ## Related Documents
 
-- `docs/MULTI-TENANCY/README.md` (category index)
-- `docs/PLAN/01-PRODUCT-REQUIREMENTS.md` (traces every requirement back here)
-- `TASKS/` (the phase and task that implements this document)
-- `MEMORY/DECISIONS.md` (record the decision here once made, don't leave it only in this file)
+- `docs/DATABASE/03-APPLICATIONS.md`, `13-API-KEYS.md`
+- `docs/MULTI-TENANCY/01-TENANT-MODEL.md`, `03-PROJECT-MODEL.md`

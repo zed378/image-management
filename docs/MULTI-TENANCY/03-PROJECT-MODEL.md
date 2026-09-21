@@ -1,33 +1,46 @@
 # 03 - Project Model
 
-> Category: **Multi-Tenancy** (`docs/MULTI-TENANCY/`) &nbsp;|&nbsp; Status: Draft specification &nbsp;|&nbsp; Owner: TBD
+> Category: **Multi-Tenancy** (`docs/MULTI-TENANCY/`) &nbsp;|&nbsp; Status: Final (v1) &nbsp;|&nbsp; Owner: TBD
 
 ## Purpose
 
-Specify project model for the Image Management & Delivery Platform. Define the entity, its primary key strategy (ULID recommended for sortability), required columns, foreign keys, and the indexes needed for the query patterns this platform actually runs.
+A project is an isolated asset space within an application. It is the
+narrowest tenancy scope and the one most queries filter on.
 
 ## Category Mandate
 
-The platform is consumed by many independent applications (tenants), each with its own assets, quotas, and CDN configuration. Multi-tenancy is treated as a fundamental, load-bearing requirement, not an afterthought: a request scoped to Tenant A must never be able to read, modify, or enumerate Tenant B's resources under any circumstance.
+The platform is consumed by many independent tenants. A request scoped to
+Tenant A must never be able to read, modify, or enumerate Tenant B's
+resources under any circumstance.
 
-## Key Topics To Specify
+---
 
-- Define the entity, its primary key strategy (ULID recommended for sortability), required columns, foreign keys, and the indexes needed for the query patterns this platform actually runs.
+## Entity
+
+Table `projects` (`docs/DATABASE/04-PROJECTS.md`): ULID `id`, `tenant_id`,
+`application_id` (composite FK with `tenant_id`), `name`, `slug` unique per
+application, `settings` jsonb, `status`, timestamps.
+
+## Rules
+
+- **Every project-owned row carries both `tenant_id` and `project_id`**, and
+  references `projects (id, tenant_id)` compositely.
+- **The request's project comes from the URL** (`/v1/projects/:projectId/...`)
+  and is authorized against the credential's allowed projects. A project the
+  credential may not access is answered with `404`, exactly as if it did not
+  exist (`docs/SECURITY/11-IDOR-BOLA-PREVENTION.md`) -- the project id is
+  itself a resource id.
+- **Projects are also isolation units within one tenant.** A folder, tag, or
+  collection from project P1 cannot be attached to an asset in project P2
+  even when both belong to the same tenant (`P2-06` tests this).
+- **Settings are per project**, not per deployment: the dimension ladder
+  (`ADR-014`) and strict parameters (`ADR-013`) are configured here.
 
 ## Acceptance Criteria
 
-- [ ] The document states every default value explicitly -- nothing is left to "whatever the library does".
-- [ ] Every rule in this document is either testable by an automated test or explicitly marked as a manual/operational check.
-- [ ] Cross-references to related documents are correct and bidirectional (the related document links back here).
-
-## Open Questions
-
-- Confirm this against the current PLAN/17-PRICING-ENTITLEMENT.md tiering before implementation starts.
-- Flag any decision here that should be promoted to a MEMORY/DECISIONS.md ADR once made.
+- [x] Entity matches the migration; rules name their enforcement.
 
 ## Related Documents
 
-- `docs/MULTI-TENANCY/README.md` (category index)
-- `docs/PLAN/01-PRODUCT-REQUIREMENTS.md` (traces every requirement back here)
-- `TASKS/` (the phase and task that implements this document)
-- `MEMORY/DECISIONS.md` (record the decision here once made, don't leave it only in this file)
+- `docs/DATABASE/04-PROJECTS.md`
+- `docs/MULTI-TENANCY/01-TENANT-MODEL.md`, `02-APPLICATION-MODEL.md`, `04-DATA-ISOLATION.md`

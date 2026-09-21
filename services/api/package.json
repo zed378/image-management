@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@image-delivery/config": "workspace:*",
+    "@image-delivery/db": "workspace:*",
     "zod": "^4.6.5"
   }
 }

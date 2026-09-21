@@ -18,7 +18,7 @@ Detail: [`TASKS/PHASE-0-FOUNDATION.md`](./PHASE-0-FOUNDATION.md)
 | P0-03 | CI pipeline | Done | `feat/P0-03-ci-pipeline` | squash | [record](../MEMORY/records/P0-03.md) |
 | P0-04 | Structured configuration & secrets loading | Done | `feat/P0-04-configuration` | squash | [record](../MEMORY/records/P0-04.md) |
 | P0-05 | Structured logging & base observability scaffold | Done | `feat/P0-05-logging-tracing` | squash | [record](../MEMORY/records/P0-05.md) |
-| P0-06 | Core database schema -- tenancy chain | Not started | - | - | - |
+| P0-06 | Core database schema -- tenancy chain | Done | `feat/P0-06-tenancy-schema` | squash | [record](../MEMORY/records/P0-06.md) |
 | P0-07 | Storage abstraction interface + local adapter | Not started | - | - | - |
 | P0-08 | API Gateway skeleton + health check | Not started | - | - | - |
 | P0-09 | Error handling & standard error envelope | Not started | - | - | - |

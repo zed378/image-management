@@ -9,5 +9,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "kysely": "^0.29.6",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@image-delivery/schema": "workspace:*",
+    "@image-delivery/test-utils": "workspace:*",
+    "@types/pg": "^8.23.1"
   }
 }

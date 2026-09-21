@@ -1,33 +1,48 @@
 # 03 - Applications
 
-> Category: **Database & Data Model** (`docs/DATABASE/`) &nbsp;|&nbsp; Status: Draft specification &nbsp;|&nbsp; Owner: TBD
+> Category: **Database** (`docs/DATABASE/`) &nbsp;|&nbsp; Status: Final (v1) &nbsp;|&nbsp; Owner: TBD
 
 ## Purpose
 
-Specify applications for the Image Management & Delivery Platform. The tenant-facing unit of isolation: an Application belongs to one Tenant/Organization, owns Projects, and is the scope at which API keys and CDN domains are issued.
+An application is one of a tenant's products that consumes the platform --
+"the storefront", "the mobile app". It is the unit API keys and signed-URL
+secrets are issued to, and it groups projects.
 
 ## Category Mandate
 
-The relational data model underlying assets, tenancy, permissions, usage, and audit. Each document specifies one table or table family: its columns, constraints, indexes, and the invariants the application layer must enforce on top of the schema.
+The relational data model underlying assets, tenancy, permissions, usage,
+and audit.
 
-## Key Topics To Specify
+---
 
-- The tenant-facing unit of isolation: an Application belongs to one Tenant/Organization, owns Projects, and is the scope at which API keys and CDN domains are issued.
+## Table `applications`
+
+| Column | Type | Null | Default | Constraint |
+|---|---|---|---|---|
+| `id` | `char(26)` | no | -- | PK, ULID check |
+| `tenant_id` | `char(26)` | no | -- | FK `tenants(id)` `ON DELETE RESTRICT` |
+| `name` | `text` | no | -- | length 1-200 |
+| `slug` | `text` | no | -- | slug pattern; `UNIQUE (tenant_id, slug)` |
+| `status` | `text` | no | `'active'` | `active`, `suspended` |
+| `created_at`, `updated_at` | `timestamptz` | no | `now()` | `updated_at` by trigger |
+| `deleted_at` | `timestamptz` | yes | -- | soft delete |
+
+Constraints: `applications_tenant_slug_uk (tenant_id, slug)`,
+`applications_id_tenant_uk (id, tenant_id)` -- the target of composite
+foreign keys from `projects` and every later application-owned table.
+
+## Invariants
+
+- A suspended application's API keys fail authentication (`P1-03`); its
+  public delivery URLs keep working unless the tenant is suspended, so a
+  suspension of API access does not break a live website.
+- Slugs are unique per tenant, not globally.
 
 ## Acceptance Criteria
 
-- [ ] The document states every default value explicitly -- nothing is left to "whatever the library does".
-- [ ] Every rule in this document is either testable by an automated test or explicitly marked as a manual/operational check.
-- [ ] Cross-references to related documents are correct and bidirectional (the related document links back here).
-
-## Open Questions
-
-- Confirm this against the current PLAN/17-PRICING-ENTITLEMENT.md tiering before implementation starts.
-- Flag any decision here that should be promoted to a MEMORY/DECISIONS.md ADR once made.
+- [x] Column list matches the migration exactly.
 
 ## Related Documents
 
-- `docs/DATABASE/README.md` (category index)
-- `docs/PLAN/01-PRODUCT-REQUIREMENTS.md` (traces every requirement back here)
-- `TASKS/` (the phase and task that implements this document)
-- `MEMORY/DECISIONS.md` (record the decision here once made, don't leave it only in this file)
+- `docs/MULTI-TENANCY/02-APPLICATION-MODEL.md`
+- `docs/DATABASE/04-PROJECTS.md`, `13-API-KEYS.md`

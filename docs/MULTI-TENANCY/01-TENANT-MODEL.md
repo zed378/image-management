@@ -1,34 +1,54 @@
 # 01 - Tenant Model
 
-> Category: **Multi-Tenancy** (`docs/MULTI-TENANCY/`) &nbsp;|&nbsp; Status: Draft specification &nbsp;|&nbsp; Owner: TBD
+> Category: **Multi-Tenancy** (`docs/MULTI-TENANCY/`) &nbsp;|&nbsp; Status: Final (v1) &nbsp;|&nbsp; Owner: TBD
 
 ## Purpose
 
-Specify tenant model for the Image Management & Delivery Platform. The top-level isolation boundary: owns Applications, is the scope for billing/plan, and is the row every other table's tenant_id foreign key must trace back to.
+The tenant is the top-level isolation boundary: the billing and plan scope,
+the owner of every application, and the row every other table's `tenant_id`
+traces back to.
 
 ## Category Mandate
 
-The platform is consumed by many independent applications (tenants), each with its own assets, quotas, and CDN configuration. Multi-tenancy is treated as a fundamental, load-bearing requirement, not an afterthought: a request scoped to Tenant A must never be able to read, modify, or enumerate Tenant B's resources under any circumstance.
+The platform is consumed by many independent tenants, each with its own
+assets, quotas, and CDN configuration. A request scoped to Tenant A must never
+be able to read, modify, or enumerate Tenant B's resources under any
+circumstance.
 
-## Key Topics To Specify
+---
 
-- The top-level isolation boundary: owns Applications, is the scope for billing/plan, and is the row every other table's tenant_id foreign key must trace back to.
-- Define the entity, its primary key strategy (ULID recommended for sortability), required columns, foreign keys, and the indexes needed for the query patterns this platform actually runs.
+## Entity
+
+Table `tenants` (`docs/DATABASE/00-DATA-MODEL.md`, `01-ERD.md`): ULID `id`,
+`name`, globally unique `slug`, `plan` (`free`, `pro`, `business`,
+`enterprise`), `status` (`active`, `suspended`), timestamps, soft delete.
+
+## Rules
+
+- **Every tenant-owned row carries `tenant_id` directly**, `NOT NULL` --
+  never only transitively through a join. `scoped()` (`P1-05`) filters on it
+  with a plain predicate, which is both faster and harder to get wrong than a
+  join.
+- **Children reference `(parent_id, tenant_id)`**, so a child whose tenant
+  disagrees with its parent's cannot be inserted.
+- **A tenant is never hard-deleted while it owns anything** (`ON DELETE
+  RESTRICT`); offboarding is a deliberate, audited process, not a cascade.
+- **A suspended tenant** fails API authentication and delivery alike.
+- **`tenant_id` never comes from the caller.** It is derived from the
+  verified credential (`docs/ENGINEERING/13`, section 1).
 
 ## Acceptance Criteria
 
-- [ ] The document states every default value explicitly -- nothing is left to "whatever the library does".
-- [ ] Every rule in this document is either testable by an automated test or explicitly marked as a manual/operational check.
-- [ ] Cross-references to related documents are correct and bidirectional (the related document links back here).
+- [x] The entity, its columns and constraints match the migration.
+- [x] The rules name their enforcement (schema constraint, `scoped()`, auth).
 
 ## Open Questions
 
-- Confirm this against the current PLAN/17-PRICING-ENTITLEMENT.md tiering before implementation starts.
-- Flag any decision here that should be promoted to a MEMORY/DECISIONS.md ADR once made.
+- Plan tier names are starting values; `docs/PLAN/17-PRICING-ENTITLEMENT.md`
+  may rename them, which is a migration.
 
 ## Related Documents
 
-- `docs/MULTI-TENANCY/README.md` (category index)
-- `docs/PLAN/01-PRODUCT-REQUIREMENTS.md` (traces every requirement back here)
-- `TASKS/` (the phase and task that implements this document)
-- `MEMORY/DECISIONS.md` (record the decision here once made, don't leave it only in this file)
+- `docs/DATABASE/00-DATA-MODEL.md`, `01-ERD.md`
+- `docs/MULTI-TENANCY/02-APPLICATION-MODEL.md`, `03-PROJECT-MODEL.md`, `08-CROSS-TENANT-PROTECTION.md`
+- `MEMORY/DECISIONS.md` (`ADR-005`)

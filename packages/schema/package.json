@@ -9,5 +9,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "ulid": "^3.0.2",
+    "zod": "^4.6.5"
   }
 }

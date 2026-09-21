@@ -9,6 +9,8 @@ import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redi
 import { GenericContainer, Wait, type StartedTestContainer } from "testcontainers";
 import type { TestProject } from "vitest/node";
 
+import "./provided-context";
+
 export const TEST_IMAGES = {
   postgres: "postgres:17-alpine",
   redis: "redis:7.4-alpine",
@@ -21,14 +23,6 @@ export const TEST_MINIO = {
   bucket: "image-delivery-test",
   region: "us-east-1",
 } as const;
-
-declare module "vitest" {
-  export interface ProvidedContext {
-    postgresAdminUrl: string;
-    redisUrl: string;
-    s3Endpoint: string;
-  }
-}
 
 export const startMinio = async (): Promise<StartedTestContainer> => {
   const container = await new GenericContainer(TEST_IMAGES.minio)

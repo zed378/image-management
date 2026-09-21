@@ -683,3 +683,36 @@ are hit.
   TypeScript is gated on `typescript-eslint`'s peer range, checked at each
   dependency review. `docs/ENGINEERING/04-TYPESCRIPT-STANDARDS.md` was
   updated from `NodeNext` to `Bundler`.
+
+### ADR-019: Kysely + `pg` as the query layer and migrator
+- Status: Accepted
+- Date: 2026-09-21
+- Context: `AGENTS.md` left the query layer to `P0-06`, naming Prisma,
+  Drizzle, or Knex. `docs/ENGINEERING/07` turned the choice into a test: the
+  winner must let `scoped()` (`P1-05`) inject a tenant predicate **by
+  construction** into reads, updates, and deletes; a caller must be unable to
+  remove it; and `INSERT` must take `tenant_id` from context rather than the
+  payload. An ORM that cannot express those properties makes `ADR-005`
+  unenforceable.
+- Decision: **Kysely 0.29** over **node-postgres**. Migrations are Kysely
+  migrations registered in a static map (`packages/db/src/migrations/index.ts`)
+  so they are bundled into the deployable and run from the production image
+  as `node dist/migrate.js`.
+- Alternatives considered: (a) **Prisma** -- its generated client owns query
+  construction, so a scoping wrapper would sit outside it and every raw
+  `$queryRaw` would bypass it; the client also adds a query engine binary to
+  the image. (b) **Drizzle** -- a good typed builder, but its schema-first
+  model generates migrations from TypeScript table definitions, and this
+  project wants hand-written SQL migrations whose constraints (composite
+  foreign keys, CHECKs, triggers) are reviewed as SQL. (c) **Knex** -- the
+  closest in spirit, but untyped; Kysely is effectively its typed successor.
+  Kysely is not in `AGENTS.md`'s list, hence this ADR.
+- Consequences: A `where` added to a Kysely builder is ANDed with existing
+  predicates, which is exactly property 3 of `scoped()` -- a chained
+  predicate cannot replace the tenant filter. Row types are declared by hand
+  in `packages/db/src/types.ts` and must be kept in step with migrations;
+  the integration tests catch drift because they run real queries. Kysely
+  0.29 moved `Migrator` to the `kysely/migration` entry point (found when the
+  first migration test failed with "Migrator is not a constructor"). `int8`
+  columns are parsed to JavaScript numbers globally, which is safe for every
+  byte count and counter on this platform (< 2^53).

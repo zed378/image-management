@@ -53,9 +53,9 @@ Two conventions used throughout:
 | Language | TypeScript | 5.9 pinned, `strict: true`, ESM only (`ADR-018`) |
 | Runtime | Node.js | LTS, pinned in `.nvmrc` + `engines` |
 | Workspace | pnpm workspaces + Turborepo | one package per service boundary |
-| HTTP framework | Fastify 5 | `ADR-019` |
+| HTTP framework | Fastify 5 | `ADR-020` |
 | Database | PostgreSQL | 15+ |
-| Query layer / migrations | Kysely + `pg` | `ADR-020` |
+| Query layer / migrations | Kysely + `pg` | `ADR-019` |
 | Cache | Redis (ioredis) | |
 | Queue | BullMQ | on Redis; processing + webhook delivery |
 | Image processing | `sharp` (libvips) | confirmed in `P3-01` |

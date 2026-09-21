@@ -40,9 +40,9 @@ Two contracts, equal in weight:
 | Language | TypeScript 5.9, `strict: true` | ESM only; bundler resolution; pinned for `typescript-eslint` (`ADR-018`). |
 | Runtime | Node.js LTS | Version pinned in `.nvmrc` and `engines`. |
 | Workspace | pnpm workspaces + Turborepo | One package per service; shared code in `packages/`. |
-| HTTP | Fastify 5 (`P0-08`) | See `ADR-019`. |
+| HTTP | Fastify 5 (`P0-08`) | See `ADR-020`. |
 | Database | PostgreSQL | |
-| Migrations / query layer | Kysely + `pg` (`P0-06`) | See `ADR-020`; `scoped()` is built on it. |
+| Migrations / query layer | Kysely + `pg` (`P0-06`) | See `ADR-019`; `scoped()` is built on it. |
 | Cache | Redis | |
 | Queue | BullMQ on Redis | Processing + webhook delivery. Never inline (ADR-007). |
 | Image processing | `sharp` (libvips) | Confirmed in `P3-01`. |

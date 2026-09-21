@@ -1,9 +1,13 @@
+import { migrateDownOne, migrateToLatest, migrationNames } from "@image-delivery/db";
 import { newId } from "@image-delivery/schema";
-import { createTestDatabase, type TestDatabase } from "@image-delivery/test-utils";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
-import { migrateDownOne, migrateToLatest, migrationNames } from "../src/migrate";
+import { createTestDatabase, type TestDatabase } from "../src/database";
+
+// Lives in test-utils rather than packages/db: test-utils depends on db, so a
+// db test depending on test-utils would be a package cycle (which Turborepo
+// rejects). Rule: a package test-utils depends on never depends on test-utils.
 
 // P0-06 Definition of Done: migrations apply from empty, and rollback of the
 // latest migration is tested rather than assumed.

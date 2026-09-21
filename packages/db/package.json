@@ -16,7 +16,6 @@
   },
   "devDependencies": {
     "@image-delivery/schema": "workspace:*",
-    "@image-delivery/test-utils": "workspace:*",
     "@types/pg": "^8.23.1"
   }
 }

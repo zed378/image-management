@@ -71,9 +71,6 @@ importers:
       '@image-delivery/schema':
         specifier: workspace:*
         version: link:../schema
-      '@image-delivery/test-utils':
-        specifier: workspace:*
-        version: link:../test-utils
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1

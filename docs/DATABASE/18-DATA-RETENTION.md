@@ -26,6 +26,7 @@ and audit.
 | Pending upload that never completed | `assets.created_at` | 24 hours | `RETENTION_PENDING_UPLOAD_HOURS` | `sweep-pending-uploads` (`P2-03`) |
 | Soft-deleted folder, tag, collection | `deleted_at` | 30 days | `RETENTION_DELETED_ASSET_DAYS` | `purge-deleted-assets` |
 | Webhook delivery attempt | `attempted_at` | 30 days | `RETENTION_WEBHOOK_DELIVERY_DAYS` | retention job (`P6-04`) |
+| Applied usage event id (`usage_event_ledger`) | `applied_at` | 30 days | `RETENTION_USAGE_LEDGER_DAYS` | retention job (`P1-08`) |
 | Usage day | `day` | 400 days (13 months, a full year-over-year) | `RETENTION_USAGE_DAYS` | retention job (`P1-08`) |
 | Audit log entry | `created_at` | 365 days | `RETENTION_AUDIT_DAYS` | retention job, with `image_delivery.audit_purge` (`P1-07`) |
 | Idempotency key | creation | 24 hours | -- | TTL (`P2-02`, `docs/ENGINEERING/08`) |

@@ -16,6 +16,9 @@ allowBuilds:
   cpu-features: false
   ssh2: false
   protobufjs: false
+  # bullmq's msgpack accelerator: its install script only rebuilds from
+  # source; the prebuilt per-platform package is used without it.
+  msgpackr-extract: false
 
 minimumReleaseAgeExclude:
   - dependency-cruiser@18.4.0

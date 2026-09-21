@@ -352,6 +352,12 @@ export interface AuditLogsTable {
   created_at: Timestamp;
 }
 
+export interface UsageEventLedgerTable {
+  event_id: string;
+  tenant_id: string;
+  applied_at: Timestamp;
+}
+
 export interface Database {
   tenants: TenantsTable;
   users: UsersTable;
@@ -375,6 +381,7 @@ export interface Database {
   quotas: QuotasTable;
   quota_overrides: QuotaOverridesTable;
   audit_logs: AuditLogsTable;
+  usage_event_ledger: UsageEventLedgerTable;
 }
 
 // Re-exported so repositories need not import kysely for these helpers.

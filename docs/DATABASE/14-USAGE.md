@@ -40,6 +40,31 @@ Indexes:
 - `usage_tenant_day_idx`: `(tenant_id, day, metric)`
 <!-- /schema:usage -->
 
+<!-- schema:usage_event_ledger -->
+Table `usage_event_ledger` (generated from the migrated schema):
+
+| Column | Type | Null | Default |
+|---|---|---|---|
+| `event_id` | `character(26)` | no |  |
+| `tenant_id` | `character(26)` | no |  |
+| `applied_at` | `timestamp with time zone` | no | `now()` |
+
+Constraints:
+
+- `usage_event_ledger_event_id_check`: `CHECK ((event_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))`
+- `usage_event_ledger_tenant_id_fkey`: `FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE`
+- `usage_event_ledger_pkey`: `PRIMARY KEY (event_id)`
+
+Indexes:
+
+- `usage_event_ledger_applied_idx`: `(applied_at)`
+- `usage_event_ledger_tenant_idx`: `(tenant_id)`
+<!-- /schema:usage_event_ledger -->
+
+`usage_event_ledger` makes applying an event exactly-once: the aggregator
+inserts the event id and adds to `usage` in one transaction, only if the
+insert happened (`P1-08`). Kept 30 days (`18-DATA-RETENTION.md`).
+
 ## Model
 
 - **Bucket**: one UTC calendar day (`day`, returned as the string

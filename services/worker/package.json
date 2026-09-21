@@ -12,6 +12,20 @@
   },
   "dependencies": {
     "@image-delivery/config": "workspace:*",
+    "@image-delivery/db": "workspace:*",
+    "@image-delivery/logger": "workspace:*",
+    "@image-delivery/queue": "workspace:*",
+    "@image-delivery/schema": "workspace:*",
+    "@image-delivery/tenancy": "workspace:*",
+    "bullmq": "^6.3.8",
+    "ioredis": "^6.0.0",
+    "kysely": "^0.29.6",
+    "pg": "^8.23.0",
+    "pino": "^10.3.1",
+    "ulid": "^3.0.2",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@image-delivery/test-utils": "workspace:*"
   }
 }

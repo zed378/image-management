@@ -38,7 +38,7 @@ Detail: [`TASKS/PHASE-1-TENANCY-AUTH.md`](./PHASE-1-TENANCY-AUTH.md)
 | P1-05 | Tenant isolation enforcement at the query layer | Done | `feat/P1-05-tenant-isolation` | squash | [record](../MEMORY/records/P1-05.md) |
 | P1-06 | IDOR/BOLA test suite as a CI gate | Done | `feat/P1-06-idor-gate` | squash | [record](../MEMORY/records/P1-06.md) |
 | P1-07 | Audit logging | Done | `feat/P1-07-audit-logging` | squash | [record](../MEMORY/records/P1-07.md) |
-| P1-08 | Quota & usage tables wired (metering scaffold, no enforcement yet) | Not started | - | - | - |
+| P1-08 | Quota & usage tables wired (metering scaffold, no enforcement yet) | Done | `feat/P1-08-usage-quotas` | squash | [record](../MEMORY/records/P1-08.md) |
 
 ## Phase 2 -- Asset Management & Storage
 

@@ -27,6 +27,8 @@ const workerEnvSchema = z
     /** Concurrent image-processing jobs per worker process (docs/PERFORMANCE/07). */
     WORKER_IMAGE_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(2),
     WORKER_WEBHOOK_CONCURRENCY: z.coerce.number().int().min(1).max(256).default(8),
+    /** Concurrent usage-aggregation jobs per worker process (P1-08). */
+    WORKER_USAGE_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
   })
   .superRefine(refineStorage);
 
@@ -35,7 +37,11 @@ export type WorkerConfig = {
   readonly database: DatabaseConfig;
   readonly redis: RedisConfig;
   readonly storage: StorageConfig;
-  readonly concurrency: { readonly image: number; readonly webhook: number };
+  readonly concurrency: {
+    readonly image: number;
+    readonly webhook: number;
+    readonly usage: number;
+  };
 };
 
 export const loadWorkerConfig = (env: RawEnv): WorkerConfig => {
@@ -45,6 +51,10 @@ export const loadWorkerConfig = (env: RawEnv): WorkerConfig => {
     database: toDatabaseConfig(e),
     redis: toRedisConfig(e),
     storage: toStorageConfig(e),
-    concurrency: { image: e.WORKER_IMAGE_CONCURRENCY, webhook: e.WORKER_WEBHOOK_CONCURRENCY },
+    concurrency: {
+      image: e.WORKER_IMAGE_CONCURRENCY,
+      webhook: e.WORKER_WEBHOOK_CONCURRENCY,
+      usage: e.WORKER_USAGE_CONCURRENCY,
+    },
   };
 };

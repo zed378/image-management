@@ -154,6 +154,7 @@ Provider-specific requirements are cross-field rules, reported as
 |---|---|---|---|
 | `WORKER_IMAGE_CONCURRENCY` | no | `2` | Concurrent encode jobs per process |
 | `WORKER_WEBHOOK_CONCURRENCY` | no | `8` | Concurrent webhook deliveries per process |
+| `WORKER_USAGE_CONCURRENCY` | no | `4` | Concurrent usage-aggregation jobs per process (`P1-08`) |
 
 Later tasks add variables for signing, delivery, CDN, and quotas; each adds
 its row here in the same change. `.env.example` lists every variable with

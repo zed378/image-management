@@ -59,6 +59,7 @@ export const TENANT_OWNED_TABLES = {
   webhook_deliveries: { project: false },
   quota_overrides: { project: false },
   audit_logs: { project: false },
+  usage_event_ledger: { project: false },
   usage: { project: true },
   folders: { project: true },
   assets: { project: true },

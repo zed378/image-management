@@ -31,6 +31,7 @@ const TABLE_SCOPES: Readonly<Record<string, "global" | "tenant" | "project">> = 
   webhook_deliveries: "tenant",
   quota_overrides: "tenant",
   audit_logs: "tenant",
+  usage_event_ledger: "tenant",
   usage: "project",
   folders: "project",
   assets: "project",

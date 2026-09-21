@@ -69,6 +69,7 @@ Only the owner's repository reads or writes it.
 | `role_assignments` | `tenancy` | tenant | `P1-01` |
 | `api_keys`, `api_key_projects` | `api-keys` | tenant | `P1-01` |
 | `usage` | `usage` | project | `P1-01` |
+| `usage_event_ledger` | `usage` | tenant | `P1-08` |
 | `quotas` | `usage` | global | `P1-01` |
 | `quota_overrides` | `usage` | tenant | `P1-01` |
 | `webhooks`, `webhook_deliveries` | `webhooks` | tenant | `P1-01` |

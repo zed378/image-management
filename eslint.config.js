@@ -275,6 +275,35 @@ export default defineConfig(
     },
   },
 
+  // Repositories reach tenant tables only through scoped() (ADR-005, P1-05):
+  // a query builder method called on a plain identifier (db.selectFrom,
+  // tx.updateTable) bypasses the tenant predicate. scoped(...).selectFrom and
+  // the expression builder's eb.selectFrom (a subquery inside a scoped query)
+  // are allowed. Restates the enum and console selectors: ESLint replaces a
+  // rule's options per matching block rather than merging them.
+  {
+    files: ["services/*/src/modules/**/*.repository.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "TSEnumDeclaration",
+          message: "Use an `as const` object and a union type, not `enum`. See ENGINEERING/04.",
+        },
+        {
+          selector: "MemberExpression[object.name='console']",
+          message: "Use the logger from @image-delivery/logger. See ENGINEERING/12.",
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(selectFrom|updateTable|deleteFrom|insertInto)$/][callee.object.type='Identifier'][callee.object.name!='eb']",
+          message:
+            "Repositories query through scoped(executor, ctx), never the raw executor. ADR-005, ENGINEERING/07.",
+        },
+      ],
+    },
+  },
+
   // ==========================================
   // RELAXATIONS
   // ==========================================

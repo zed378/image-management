@@ -90,6 +90,12 @@ describe("architectural lint rules fire", () => {
       "ADR-004",
     ],
     [
+      "a repository querying the raw executor",
+      "services/api/src/modules/folder/folder.repository.ts",
+      'export const find = (db: { selectFrom: (t: string) => unknown }) => db.selectFrom("folders");\n',
+      "Repositories query through scoped",
+    ],
+    [
       "console in library code",
       "packages/cache/src/redis.ts",
       'export const x = () => { console.log("hi"); };\n',
@@ -120,6 +126,11 @@ describe("architectural lint rules stay out of the way where the code belongs", 
       "transform-params may hash",
       "packages/transform-params/src/hash.ts",
       'import { createHash } from "node:crypto";\nexport const x = createHash;\n',
+    ],
+    [
+      "a repository may query through scoped()",
+      "services/api/src/modules/folder/folder.repository.ts",
+      'import { scoped } from "@image-delivery/db";\nexport const find = (db: never, ctx: never) => scoped(db, ctx).selectFrom("folders");\n',
     ],
     [
       "a service may call a repository",

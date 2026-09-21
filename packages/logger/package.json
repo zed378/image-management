@@ -9,5 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "pino": "^10.3.1"
   }
 }

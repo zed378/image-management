@@ -142,6 +142,14 @@ export const REDACT_PATHS = [
 ] as const;
 ```
 
+The list above is illustrative; the source of truth is
+`packages/logger/src/redact.ts`, and every path in it is covered by a
+sentinel test in `logger.test.ts`. Redaction matches field names at the top
+level and **one level down only** -- a secret nested deeper is not caught,
+and a test pins that boundary so nobody assumes more coverage than exists
+(`docs/OBSERVABILITY/01-LOGGING.md`). URLs go through `redactUrl()` before
+logging.
+
 **Never logged, at any level, including `debug`:**
 
 | Never | Because |

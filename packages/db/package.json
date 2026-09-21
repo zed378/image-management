@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PostgreSQL connection, migrations, and the scoped() base repository (P0-06, P1-05).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

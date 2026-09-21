@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/transform-params",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The one canonical transformation-parameter normalizer and params_hash (ADR-004).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

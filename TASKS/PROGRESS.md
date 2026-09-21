@@ -13,7 +13,7 @@ Detail: [`TASKS/PHASE-0-FOUNDATION.md`](./PHASE-0-FOUNDATION.md)
 
 | Task | Title | Status | Branch | PR | MEMORY record |
 |---|---|---|---|---|---|
-| P0-01 | Repository & workspace scaffolding | Not started | - | - | - |
+| P0-01 | Repository & workspace scaffolding | Done | `feat/P0-01-workspace-scaffolding` | ff-merge | [record](../MEMORY/records/P0-01.md) |
 | P0-02 | Local infrastructure via Docker Compose | Not started | - | - | - |
 | P0-03 | CI pipeline | Not started | - | - | - |
 | P0-04 | Structured configuration & secrets loading | Not started | - | - | - |

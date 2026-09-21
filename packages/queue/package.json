@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/queue",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Job queue interface with BullMQ and in-memory implementations (ADR-007).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

@@ -37,12 +37,12 @@ Two contracts, equal in weight:
 
 | Concern | Choice | Notes |
 |---|---|---|
-| Language | TypeScript, `strict: true` | No `.js` source files, no CommonJS. ESM only. |
+| Language | TypeScript 5.9, `strict: true` | ESM only; bundler resolution; pinned for `typescript-eslint` (`ADR-018`). |
 | Runtime | Node.js LTS | Version pinned in `.nvmrc` and `engines`. |
 | Workspace | pnpm workspaces + Turborepo | One package per service; shared code in `packages/`. |
-| HTTP | Framework chosen in `P0-08` | Layer templates here are framework-neutral by design. |
+| HTTP | Fastify 5 (`P0-08`) | See `ADR-019`. |
 | Database | PostgreSQL | |
-| Migrations / query layer | **Open -- decided in `P0-06`** | Prisma, Drizzle, or Knex. Repository templates here do not assume one. |
+| Migrations / query layer | Kysely + `pg` (`P0-06`) | See `ADR-020`; `scoped()` is built on it. |
 | Cache | Redis | |
 | Queue | BullMQ on Redis | Processing + webhook delivery. Never inline (ADR-007). |
 | Image processing | `sharp` (libvips) | Confirmed in `P3-01`. |
@@ -74,16 +74,19 @@ image-delivery/
 │   ├── schema/                   # Zod schemas shared across services
 │   ├── storage-adapter/          # StorageAdapter interface + S3 impl (ADR-001)
 │   ├── transform-params/         # Normalization + params_hash (ADR-004)
-│   ├── tenancy/                  # TenantContext type + scoping helpers
+│   ├── tenancy/                  # TenantContext, permissions, RBAC matrix
+│   ├── queue/                    # Queue interface: BullMQ + in-memory (ADR-007)
+│   ├── cache/                    # Cache interface: Redis + in-memory
+│   ├── image-engine/             # sharp/libvips pipeline (ADR-016 settings)
+│   ├── signing/                  # Signed-URL canonical string + HMAC (ADR-006)
 │   └── test-utils/               # Fixtures, factories, isolation helpers
-├── services/                     # One deployable per service boundary
-│   ├── api-gateway/
-│   ├── asset-service/
-│   ├── image-processing-service/
-│   ├── storage-service/
-│   └── search-service/
+├── services/                     # Two deployables (ADR-017)
+│   ├── api/                      # HTTP: /v1 management, /i delivery, admin
+│   └── worker/                   # Queue consumers: derivatives, webhooks, usage
 ├── apps/
-│   └── dashboard/                # Developer/admin UI (docs/UI-UX/)
+│   ├── dashboard/                # Developer/admin UI (docs/UI-UX/)
+│   └── website/                  # Marketing site + docs (docs/WEBSITE/)
+├── sdks/                         # typescript, react, php, go (docs/SDK/)
 ├── .env.example
 ├── tsconfig.base.json
 └── turbo.json
@@ -92,7 +95,7 @@ image-delivery/
 Inside a service, code is grouped by **domain module**, not by layer:
 
 ```
-services/asset-service/src/
+services/api/src/
 ├── modules/
 │   ├── asset/
 │   │   ├── asset.routes.ts       # HTTP surface only

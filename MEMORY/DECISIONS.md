@@ -612,3 +612,74 @@ are hit.
   itself needs re-running on Linux and ARM and on real photographs before
   any byte figure is published (`docs/WEBSITE/03-LANDING-PAGE-COPY.md`); the
   effort cliff will hold, the absolute numbers will not.
+
+### ADR-017: Two deployables (`api`, `worker`) plus libraries, not one
+    service per logical component
+- Status: Accepted
+- Date: 2026-09-21
+- Context: `docs/ARCHITECTURE/02-SERVICE-BOUNDARIES.md` and `P0-01` described
+  five service packages (`api-gateway`, `asset-service`,
+  `image-processing-service`, `storage-service`, `search-service`), and the
+  earlier engineering documents repeated that layout. Building five
+  network-separated services means four extra network hops on the request
+  path, distributed transactions or eventual consistency between asset
+  metadata and storage, five deployment pipelines, and inter-service
+  authentication -- all before the first customer. The boundaries that
+  actually carry security and correctness weight (storage abstraction,
+  parameter normalization, tenant scoping) are *code* boundaries, and they
+  are enforceable as package boundaries without a network in between.
+- Decision: v1 ships **two deployables** -- `services/api` (every HTTP
+  surface: management, delivery, admin, probes) and `services/worker` (every
+  queue consumer) -- plus thirteen libraries under `packages/`. The logical
+  services survive as module and package boundaries, each enforced by lint
+  or `dependency-cruiser` rather than by a network. The Storage Service
+  becomes `packages/storage-adapter`, an in-process library, which is what
+  `ADR-001` already implied. One PostgreSQL database, with table ownership
+  assigned per module and cross-module access only through service
+  functions.
+- Alternatives considered: (a) Five services as specified -- rejected for
+  the cost above, none of which buys anything at v1 traffic. (b) One
+  deployable doing HTTP and queue consumption in the same process --
+  rejected because CPU-bound encoding would compete with request latency in
+  the same event loop and the same container limits, the exact coupling
+  `ADR-007` exists to remove. (c) A separate processing service reached over
+  HTTP -- rejected because the queue already provides the decoupling, back
+  pressure, and retry semantics an HTTP hop would have to re-implement.
+- Consequences: Scaling image processing independently is a replica-count
+  change on `worker`. Promoting any module to its own service later is
+  mechanical, because modules share packages and never repositories. The
+  specification's "each service owns its database" is weakened to "each
+  module owns its tables", which is weaker: a lint rule, not a network,
+  prevents one module's repository from being imported by another.
+  `docs/ENGINEERING/00-CODING-CONTEXT.md` and `02-PROJECT-STRUCTURE.md` were
+  corrected to this layout.
+
+### ADR-018: Just-in-time workspace packages, bundler module resolution,
+    TypeScript pinned to 5.9
+- Status: Accepted
+- Date: 2026-09-21
+- Context: A pnpm workspace can either build every package to `dist/`
+  before its consumers can use it, or have packages export TypeScript
+  source directly and let the consumer's toolchain compile it. The engineering
+  standard had specified `moduleResolution: NodeNext`, which requires `.js`
+  extensions on every relative import and a build step per package. The
+  current TypeScript release is 7.0, the native Go port; `typescript-eslint`
+  8.70 declares a peer range of `typescript >=4.8.4 <6.1.0`.
+- Decision: Packages export their `src/index.ts` directly ("just-in-time"
+  packages). Services are bundled by `tsup`, which inlines the workspace
+  packages into one self-contained artifact per deployable; tests run
+  through Vitest, which compiles TypeScript itself. Every tsconfig uses
+  `module: ESNext` and `moduleResolution: Bundler`. TypeScript is pinned to
+  `5.9.3` until `typescript-eslint` supports a newer major.
+- Alternatives considered: (a) Built packages with project references --
+  rejected: a build step per package multiplies CI time and makes every
+  cross-package change a two-step edit, for no runtime benefit, since the
+  deployables are bundled anyway. (b) `NodeNext` resolution with emitted
+  packages -- rejected with (a). (c) TypeScript 7 -- rejected for now;
+  type-aware lint is how several of `docs/ENGINEERING/10`'s architectural
+  rules are enforced, and losing it to gain compile speed is the wrong trade.
+- Consequences: No package is independently publishable as built output; the
+  SDKs under `sdks/` are the exception and get their own build. Upgrading
+  TypeScript is gated on `typescript-eslint`'s peer range, checked at each
+  dependency review. `docs/ENGINEERING/04-TYPESCRIPT-STANDARDS.md` was
+  updated from `NodeNext` to `Bundler`.

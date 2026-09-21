@@ -12,8 +12,8 @@ than one answer per session. The layout mirrors
 architecture is a directory under `services/`, and anything shared across
 that boundary is a package.
 
-`P0-01` confirms the final names; until it runs, this is the proposed
-layout, and a deviation from it is an ADR (`AGENTS.md`).
+Confirmed by `P0-01`; the deployable topology is `ADR-017` and the build
+model is `ADR-018`. A deviation from this layout is an ADR (`AGENTS.md`).
 
 ## The three tiers
 
@@ -39,11 +39,8 @@ The three rules that follow from this table, all enforced by
 
 ```
 services/
-├── api-gateway/                  # Edge: routing, auth, rate limit, request id
-├── asset-service/                # Asset CRUD, folders, metadata, search entry
-├── image-processing-service/     # sharp pipeline + BullMQ consumers
-├── storage-service/              # Object lifecycle over the storage adapter
-└── search-service/               # Query, filter, sort, discovery
+├── api/                          # Every HTTP surface: /v1, /i delivery, admin, probes
+└── worker/                       # Every queue consumer (ADR-017)
 ```
 
 Each service has the same internal shape:
@@ -121,7 +118,10 @@ packages/
 ├── schema/             # Zod schemas shared across services
 ├── storage-adapter/    # StorageAdapter interface + S3 impl (ADR-001/002)
 ├── transform-params/   # Normalization + params_hash (ADR-004/009)
-├── clients/            # HTTP clients for inter-service contracts
+├── queue/              # Queue interface: BullMQ + in-memory (ADR-007)
+├── cache/              # Cache interface: Redis + in-memory
+├── image-engine/       # sharp/libvips pipeline, encoder settings (ADR-016)
+├── signing/            # Signed-URL canonical string + HMAC (ADR-006)
 └── test-utils/         # Factories, fixtures, isolation helpers
 ```
 
@@ -131,13 +131,15 @@ Rules:
   This is what lets a test construct one with three different
   configurations in one file.
 - A package MUST NOT contain a rule specific to one service. If only
-  `asset-service` will ever call it, it belongs in `asset-service`.
+  `services/api` will ever call it, it belongs in `services/api`.
 - A package exports through a single `src/index.ts` barrel. Deep imports
   into a package's internals are banned by lint -- the barrel is the
   package's contract.
 - Each package has its own `package.json`, `tsconfig.json`, and tests, and
-  builds independently. `pnpm build` in a package must succeed with no
-  sibling built first beyond its declared dependencies.
+  typechecks independently. Packages have no build step: they export their
+  TypeScript source, and the services' `tsup` bundles inline them
+  (`ADR-018`). The SDKs under `sdks/` are the exception and build their own
+  distributable output.
 - `packages/transform-params` and `packages/storage-adapter` are the two
   packages with hard import restrictions pointing *at* them (section 23):
   they exist to be the only implementation of their concern.
@@ -146,7 +148,8 @@ Rules:
 
 ```
 apps/
-└── dashboard/          # Developer/admin UI, per docs/UI-UX/
+├── dashboard/          # Developer/admin UI, per docs/UI-UX/
+└── website/            # Marketing site + documentation, per docs/WEBSITE/
 ```
 
 The dashboard is a client of the public API contract, exactly like a
@@ -190,12 +193,9 @@ image-delivery/
 
 ## Open Questions
 
-- `P0-01` confirms the final service and package names, and whether the
-  service tier is `services/` or flat packages. Update this document and
-  `docs/ARCHITECTURE/02-SERVICE-BOUNDARIES.md` in that same change.
-- Whether `search-service` is a separate deployable in v1 or a module inside
-  `asset-service` is open until `docs/SEARCH/` and `P6-01` settle it; the
-  import rules are unaffected either way.
+- Resolved by `P0-01`: two deployables, `services/api` and
+  `services/worker` (`ADR-017`); search is a module inside `services/api`.
+- None open.
 
 ## Related Documents
 

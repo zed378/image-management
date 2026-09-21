@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/storage-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "StorageAdapter interface and provider implementations (ADR-001, P0-07).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

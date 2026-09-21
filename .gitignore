@@ -1,0 +1,25 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+# Local object storage and scratch data
+.data/
+tmp/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test and tool artifacts
+test-results/
+playwright-report/
+*.log

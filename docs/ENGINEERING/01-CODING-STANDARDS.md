@@ -50,12 +50,12 @@ Two conventions used throughout:
 
 | Component | Technology | Version / Notes |
 |---|---|---|
-| Language | TypeScript | 5.x, `strict: true`, ESM only |
+| Language | TypeScript | 5.9 pinned, `strict: true`, ESM only (`ADR-018`) |
 | Runtime | Node.js | LTS, pinned in `.nvmrc` + `engines` |
 | Workspace | pnpm workspaces + Turborepo | one package per service boundary |
-| HTTP framework | **Decided in `P0-08`** | templates below stay framework-neutral |
+| HTTP framework | Fastify 5 | `ADR-019` |
 | Database | PostgreSQL | 15+ |
-| Query layer / migrations | **Decided in `P0-06`** | Prisma / Drizzle / Knex |
+| Query layer / migrations | Kysely + `pg` | `ADR-020` |
 | Cache | Redis (ioredis) | |
 | Queue | BullMQ | on Redis; processing + webhook delivery |
 | Image processing | `sharp` (libvips) | confirmed in `P3-01` |
@@ -238,11 +238,10 @@ Non-negotiable flags:
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "target": "ES2022",
-    "declaration": true,
-    "sourceMap": true
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2023",
+    "noEmit": true
   }
 }
 ```
@@ -1267,7 +1266,7 @@ More: [`12-LOGGING-CONVENTIONS.md`](./12-LOGGING-CONVENTIONS.md).
 ```bash
 # App
 NODE_ENV=development
-SERVICE_NAME=asset-service
+SERVICE_NAME=api
 PORT=3000
 LOG_LEVEL=info
 
@@ -1309,7 +1308,7 @@ TRANSFORM_MAX_DIMENSION_PX=8192
 
 # Observability
 OTEL_EXPORTER_OTLP_ENDPOINT=
-OTEL_SERVICE_NAME=asset-service
+OTEL_SERVICE_NAME=api
 ```
 
 ### Config template

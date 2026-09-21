@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/cache",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Application cache interface with Redis and in-memory implementations.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

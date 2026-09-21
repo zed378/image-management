@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP: management API, delivery path and admin API (ADR-017).",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

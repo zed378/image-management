@@ -1,0 +1,40 @@
+{
+  "name": "image-delivery",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:coverage": "vitest run --coverage",
+    "deps:check": "depcruise packages services apps sdks --config .dependency-cruiser.cjs",
+    "dev": "turbo run dev --parallel",
+    "infra:up": "docker compose -f deploy/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose -f deploy/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.0.1",
+    "dependency-cruiser": "^18.4.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-import-x": "^4.17.1",
+    "lint-staged": "^17.5.1",
+    "prettier": "^3.9.8",
+    "simple-git-hooks": "^2.14.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.1"
+  }
+}

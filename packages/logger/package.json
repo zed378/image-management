@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/logger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Structured JSON logging with a redaction list (P0-05).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

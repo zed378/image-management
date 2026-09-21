@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed, validated environment configuration (P0-04).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

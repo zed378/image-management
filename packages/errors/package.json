@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/errors",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AppError hierarchy, error-code registry, response helpers (P0-09).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

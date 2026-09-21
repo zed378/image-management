@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/test-utils",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Factories, fixtures and cross-tenant isolation helpers for tests.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

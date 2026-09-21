@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/tenancy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TenantContext, permissions and the RBAC matrix (P1-04).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

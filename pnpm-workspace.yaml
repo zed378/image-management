@@ -1,0 +1,16 @@
+packages:
+  - packages/*
+  - services/*
+  - apps/*
+  - sdks/*
+
+# Native binaries (sharp/libvips, esbuild) and the git-hook installer ship
+# through install scripts. Everything else is denied by default.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  simple-git-hooks: true
+  unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - dependency-cruiser@18.4.0

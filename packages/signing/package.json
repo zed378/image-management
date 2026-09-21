@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/signing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Signed-URL canonical string and HMAC verification (ADR-006, P5-02).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

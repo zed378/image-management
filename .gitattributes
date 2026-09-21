@@ -1,0 +1,13 @@
+# The team develops on Windows and Linux; normalize everything to LF so a
+# checkout never produces a CRLF-only diff (docs/ENGINEERING/10).
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.gif binary
+*.tif binary
+*.tiff binary
+*.woff2 binary

@@ -34,19 +34,17 @@ only paths.
     "noUnusedParameters": true,
     "forceConsistentCasingInFileNames": true,
 
-    // Modules
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "target": "ES2022",
-    "lib": ["ES2022"],
+    // Modules (ADR-018: just-in-time packages, bundled services)
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2023",
+    "lib": ["ES2023"],
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
 
-    // Output
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    // Output: none. Packages export source; services are bundled by tsup.
+    "noEmit": true,
     "skipLibCheck": true
   }
 }

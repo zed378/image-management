@@ -1,0 +1,13 @@
+{
+  "name": "@image-delivery/image-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The libvips/sharp transformation pipeline (P3-01).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

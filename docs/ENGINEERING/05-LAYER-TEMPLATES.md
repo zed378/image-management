@@ -1,6 +1,6 @@
 # 05 - Layer Templates
 
-> Category: **Engineering Conventions** (`docs/ENGINEERING/`) &nbsp;|&nbsp; Status: Final (v1) &nbsp;|&nbsp; Owner: TBD
+> Category: **Engineering Conventions** (`docs/ENGINEERING/`) &nbsp;|&nbsp; Status: Final (v2 -- rewritten from the first real module, `P1-03`) &nbsp;|&nbsp; Owner: TBD
 
 Expands sections 5-9 of [`01-CODING-STANDARDS.md`](./01-CODING-STANDARDS.md).
 
@@ -8,415 +8,218 @@ Expands sections 5-9 of [`01-CODING-STANDARDS.md`](./01-CODING-STANDARDS.md).
 
 A copy-pasteable starting point for every file in a domain module, so a new
 module is a mechanical exercise rather than a series of small invented
-decisions. The worked example is `folder` -- a small, real module from
-`docs/API/17-FOLDER-COLLECTION-API.md` -- shown as the complete vertical
-slice.
-
-HTTP framework types are written as `<http-framework>` until `P0-08` decides;
-query-layer syntax is shown through `scoped()` and is independent of the
-`P0-06` choice.
+decisions. The worked example is **the real API-key module**
+(`services/api/src/modules/api-keys/`), abridged here; the files are the
+source of truth when the two differ. Version 1 of this document used an
+invented folder module with placeholder framework types; it was replaced by
+working code as promised in ADR-020.
 
 ---
 
-## The full slice, file by file
+## The files of a module
 
-### `folder.types.ts`
+```
+services/api/src/modules/api-keys/
+  api-key.constants.ts       limits and defaults, each tracing to a doc
+  api-key.types.ts           domain type, wire type (and the row type in the mapper)
+  api-key.schema.ts          Zod request schemas: .strict(), every string bounded
+  api-key.mapper.ts          row -> domain -> wire, pure
+  api-key.repository.ts      queries, every one through scoped(); no rules
+  api-key.service.ts         rules, transactions, AppErrors; no HTTP
+  api-key.routes.ts          parse, call, respond; permission declared per route
+  api-key.authentication.ts  the one exception: pre-tenant queries (unsafeUnscoped)
+  *.test.ts                  unit tests beside the source
+services/api/tests/
+  api-keys.int.test.ts       service against a real database
+  api-keys-http.int.test.ts  HTTP against a real database, incl. the cross-tenant 404s
+```
+
+Modules are **factories** that take their dependencies
+(`createApiKeyService({ db, pepper, now })`), not singletons importing a
+global database. That is what lets a test pass a clock or a stub, and what
+lets the worker reuse a service with its own connection.
+
+## Layer by layer
+
+### `*.types.ts` and `*.mapper.ts`
 
 ```ts
-import type { Brand } from "@image-delivery/tenancy";
-import { AppError } from "@image-delivery/errors";
-import { isUlid } from "@image-delivery/schema";
-
-export type FolderId = Brand<string, "FolderId">;
-
-export const toFolderId = (raw: string): FolderId => {
-  if (!isUlid(raw)) throw new AppError("invalid_id");
-  return raw as FolderId;
-};
-
-export type Folder = {
-  readonly id: FolderId;
-  readonly parentId: FolderId | null;
-  readonly name: string;
-  readonly path: string;
-  readonly assetCount: number;
+// api-key.types.ts -- the domain shape; never the secret or its hash
+export type ApiKey = {
+  readonly id: string;
+  readonly applicationId: string;
+  readonly permissions: readonly string[];
+  readonly projectAccess: "all" | readonly string[];
+  readonly status: ApiKeyStatus;
   readonly createdAt: Date;
-  readonly updatedAt: Date;
+  // ...
 };
 
-export type FolderRow = {
+export type ApiKeyWire = {           // the API contract, snake_case, ISO dates
   readonly id: string;
-  readonly parent_id: string | null;
-  readonly name: string;
-  readonly path: string;
-  readonly asset_count: number;
-  readonly created_at: Date;
-  readonly updated_at: Date;
-};
-
-export type FolderWire = {
-  readonly id: string;
-  readonly parent_id: string | null;
-  readonly name: string;
-  readonly path: string;
-  readonly asset_count: number;
+  readonly application_id: string;
+  readonly all_projects: boolean;
+  readonly project_ids: readonly string[];
   readonly created_at: string;
-  readonly updated_at: string;
+  // ...
 };
+
+// api-key.mapper.ts -- the row type is derived from the table, minus what
+// must never leave the repository
+export type ApiKeyRow = Omit<Selectable<ApiKeysTable>, "key_hash" | "tenant_id">;
+export const toApiKey = (row: ApiKeyRow, projectIds: readonly string[]): ApiKey => ({ /* ... */ });
+export const toApiKeyWire = (key: ApiKey): ApiKeyWire => ({ /* ... */ });
 ```
 
 Three shapes, deliberately: the row is what the database has, the domain
-type is what business rules operate on, and the wire type is the contract.
-Collapsing them means a column rename is an API break.
+type is what rules operate on, the wire type is the contract. Collapsing
+them makes a column rename an API break -- and here, it is also what keeps
+`key_hash` out of every read by construction.
 
-### `folder.constants.ts`
-
-```ts
-export const MAX_FOLDER_NAME_LENGTH = 128;
-export const MAX_FOLDER_DEPTH = 16; // PLAN/06-BUSINESS-RULES.md
-export const FOLDER_NAME_PATTERN = /^[\w][\w .-]*$/u;
-```
-
-### `folder.schema.ts`
+### `*.schema.ts`
 
 ```ts
-import { z } from "zod";
-
-import { ulidSchema, paginationSchema } from "@image-delivery/schema";
-import { FOLDER_NAME_PATTERN, MAX_FOLDER_NAME_LENGTH } from "./folder.constants.js";
-
-export const folderIdParamSchema = z.object({ folderId: ulidSchema }).strict();
-
-export const createFolderBodySchema = z
+export const createApiKeyBodySchema = z
   .object({
-    name: z.string().min(1).max(MAX_FOLDER_NAME_LENGTH).regex(FOLDER_NAME_PATTERN),
-    parent_id: ulidSchema.nullable().default(null),
+    name: z.string().trim().min(1).max(MAX_API_KEY_NAME_LENGTH),
+    environment: z.enum(API_KEY_ENVIRONMENTS),
+    permissions: z.array(z.string().regex(PERMISSION_PATTERN)).min(1).max(MAX_PERMISSIONS_PER_KEY)
+      .transform((p) => [...new Set(p)].sort()),
+    all_projects: z.boolean().default(false),
+    project_ids: z.array(ulid).max(MAX_PROJECTS_PER_KEY).default([]),
   })
-  .strict();
-
-export const listFoldersQuerySchema = paginationSchema
-  .extend({ parent_id: ulidSchema.optional() })
-  .strict();
-
-export type CreateFolderBody = z.infer<typeof createFolderBodySchema>;
-export type ListFoldersQuery = z.infer<typeof listFoldersQuerySchema>;
+  .strict()                                         // unknown fields are errors
+  .refine((b) => b.all_projects !== b.project_ids.length > 0, { path: ["project_ids"] });
 ```
 
-### `folder.mapper.ts`
+`.strict()` is what rejects `{ "tenant_id": ... }` in a body. Every array
+and string has a bound.
+
+### `*.repository.ts`
 
 ```ts
-import type { Folder, FolderRow, FolderWire } from "./folder.types.js";
-import { toFolderId } from "./folder.types.js";
-
-export const toFolderDomain = (row: FolderRow): Folder => ({
-  id: toFolderId(row.id),
-  parentId: row.parent_id === null ? null : toFolderId(row.parent_id),
-  name: row.name,
-  path: row.path,
-  assetCount: row.asset_count,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-});
-
-export const toFolderWire = (folder: Folder): FolderWire => ({
-  id: folder.id,
-  parent_id: folder.parentId,
-  name: folder.name,
-  path: folder.path,
-  asset_count: folder.assetCount,
-  created_at: folder.createdAt.toISOString(),
-  updated_at: folder.updatedAt.toISOString(),
-});
+export const createApiKeyRepository = (db: Executor) => {
+  const findById = async (ctx: TenantContext, applicationId: string, keyId: string, tx?: Executor) => {
+    const row = await scoped(tx ?? db, ctx)       // the tenant predicate, by construction
+      .selectFrom("api_keys")
+      .select(COLUMNS)                             // explicit; key_hash is not in it
+      .where("application_id", "=", applicationId)
+      .where("id", "=", keyId)
+      .executeTakeFirst();
+    return row ? toApiKey(row, /* ... */) : null;  // find* returns T | null
+  };
+  // insert, listByApplication, expireBy, revoke ...
+  return { findById /* ... */ };
+};
 ```
 
-Mappers are pure and get their own unit test. They are also where the
-`snake_case` boundary lives, in one place per module.
+A repository MUST NOT: hold a business rule, throw a not-found `AppError`,
+call another repository, open a transaction (it accepts `tx`), enqueue,
+or touch a cache. Every query goes through `scoped()`
+([`07`](./07-REPOSITORY-DATABASE-STANDARDS.md)); `unsafeUnscoped` is
+banned in repositories by lint.
 
-### `folder.repository.ts`
+### `*.service.ts`
 
 ```ts
-import type { TenantContext } from "@image-delivery/tenancy";
-import { scoped, type Tx } from "@image-delivery/db";
+export const createApiKeyService = (deps: { db: Db; pepper: string; now?: () => Date }) => {
+  const keys = createApiKeyRepository(deps.db);
+  const tenancy = createTenancyRepository(deps.db);
 
-import { toFolderDomain } from "./folder.mapper.js";
-import type { Folder, FolderId, FolderRow } from "./folder.types.js";
+  const create = async (ctx: TenantContext, applicationId: string, body: CreateApiKeyBody) =>
+    deps.db.transaction().execute(async (tx) => {
+      assertApplicationInScope(ctx, applicationId);            // rule
+      assertWithinCallerGrant(ctx, body.permissions, /*...*/); // rule: no escalation
+      const application = await tenancy.findApplication(ctx, applicationId, tx);
+      if (!application) throw new AppError("application_not_found"); // absent == foreign
+      // ...
+      return { apiKey, plaintext };
+    });
 
-const COLUMNS = [
-  "id", "parent_id", "name", "path", "asset_count", "created_at", "updated_at",
-] as const;
-
-// ==========================================
-// READ
-// ==========================================
-
-export const findById = async (
-  ctx: TenantContext,
-  folderId: FolderId,
-  tx?: Tx,
-): Promise<Folder | null> => {
-  const row = await scoped<FolderRow>(ctx, "folders", tx)
-    .select(COLUMNS)
-    .where({ id: folderId, deleted_at: null })
-    .first();
-
-  return row ? toFolderDomain(row) : null;
-};
-
-export const findByPath = async (
-  ctx: TenantContext,
-  path: string,
-  tx?: Tx,
-): Promise<Folder | null> => {
-  const row = await scoped<FolderRow>(ctx, "folders", tx)
-    .select(COLUMNS)
-    .where({ path, deleted_at: null })
-    .first();
-
-  return row ? toFolderDomain(row) : null;
-};
-
-// ==========================================
-// WRITE
-// ==========================================
-
-export const insertOne = async (
-  ctx: TenantContext,
-  input: { name: string; parentId: FolderId | null; path: string },
-  tx: Tx,
-): Promise<Folder> => {
-  const [row] = await scoped<FolderRow>(ctx, "folders", tx)
-    .insert({
-      id: newUlid(),
-      parent_id: input.parentId,
-      name: input.name,
-      path: input.path,
-    })
-    .returning(COLUMNS);
-
-  return toFolderDomain(row);
+  return { create, list, get, rotate, revoke, authenticate };
 };
 ```
 
-Note what the repository does **not** do: no depth check, no name-collision
-decision, no not-found `AppError`. Those are rules, and rules live in the
-service.
+The service is where rules live, where transactions open, and where
+`AppError`s are thrown. It MUST NOT import `fastify` or anything under
+`http/` (lint-enforced): the worker calls services too.
 
-### `folder.service.ts`
+### `*.routes.ts`
 
 ```ts
-import type { TenantContext } from "@image-delivery/tenancy";
-import { AppError } from "@image-delivery/errors";
-import { logger } from "@image-delivery/logger";
-import { withTransaction } from "@image-delivery/db";
+const applicationParams = z.object({ application_id: z.string().regex(ULID_PATTERN) }).strict();
 
-import * as folderRepository from "./folder.repository.js";
-import { MAX_FOLDER_DEPTH } from "./folder.constants.js";
-import type { CreateFolderBody } from "./folder.schema.js";
-import type { Folder, FolderId } from "./folder.types.js";
+export const registerApiKeyRoutes = (app: FastifyInstance, apiKeys: ApiKeyService): void => {
+  app.post(
+    "/applications/:application_id/api-keys",
+    { config: { permission: "api-key:create" } },    // required: SEC-AZ-01
+    async (request, reply) => {
+      const { application_id } = applicationParams.parse(request.params);
+      const body = createApiKeyBodySchema.parse(request.body);
 
-// ==========================================
-// CREATE
-// ==========================================
+      const issued = await apiKeys.create(tenantOf(request), application_id, body);
 
-export const createFolder = async (
-  ctx: TenantContext,
-  input: CreateFolderBody,
-): Promise<Folder> =>
-  withTransaction(ctx, async (tx) => {
-    const parent = input.parent_id
-      ? await folderRepository.findById(ctx, toFolderId(input.parent_id), tx)
-      : null;
-
-    if (input.parent_id && !parent) {
-      // Absent and foreign-tenant are indistinguishable by design:
-      // docs/SECURITY/11-IDOR-BOLA-PREVENTION.md
-      throw new AppError("folder_not_found");
-    }
-
-    const path = buildFolderPath(parent, input.name);
-
-    if (depthOf(path) > MAX_FOLDER_DEPTH) {
-      throw new AppError("folder_too_deep", {
-        details: [{ field: "parent_id", reason: "max_depth_exceeded" }],
-      });
-    }
-
-    const collision = await folderRepository.findByPath(ctx, path, tx);
-    if (collision) throw new AppError("folder_already_exists");
-
-    const folder = await folderRepository.insertOne(
-      ctx,
-      { name: input.name, parentId: parent?.id ?? null, path },
-      tx,
-    );
-
-    logger.info({ folder_id: folder.id, path }, "folder created");
-    return folder;
-  });
-
-// ==========================================
-// READ
-// ==========================================
-
-export const getFolder = async (ctx: TenantContext, folderId: FolderId): Promise<Folder> => {
-  const folder = await folderRepository.findById(ctx, folderId);
-  if (!folder) throw new AppError("folder_not_found");
-  return folder;
-};
-
-// ==========================================
-// PURE HELPERS
-// ==========================================
-
-const buildFolderPath = (parent: Folder | null, name: string): string =>
-  parent ? `${parent.path}/${name}` : `/${name}`;
-
-const depthOf = (path: string): number => path.split("/").filter(Boolean).length;
-```
-
-### `folder.controller.ts`
-
-```ts
-import type { RequestHandler } from "<http-framework>";
-
-import { created, ok } from "@image-delivery/errors";
-
-import * as folderService from "./folder.service.js";
-import { toFolderWire } from "./folder.mapper.js";
-import { createFolderBodySchema, folderIdParamSchema } from "./folder.schema.js";
-import { toFolderId } from "./folder.types.js";
-
-export const handleCreateFolder: RequestHandler = async (req, res) => {
-  const body = createFolderBodySchema.parse(req.body);
-
-  const folder = await folderService.createFolder(req.tenantContext, body);
-
-  created(res, toFolderWire(folder), { location: `/v1/folders/${folder.id}` });
-};
-
-export const handleGetFolder: RequestHandler = async (req, res) => {
-  const { folderId } = folderIdParamSchema.parse(req.params);
-
-  const folder = await folderService.getFolder(req.tenantContext, toFolderId(folderId));
-
-  ok(res, toFolderWire(folder));
+      return created(request, reply, { ...toApiKeyWire(issued.apiKey), key: issued.plaintext },
+        `/v1/applications/${application_id}/api-keys/${issued.apiKey.id}`);
+    },
+  );
+  // ...
 };
 ```
 
-### `folder.routes.ts`
+A route handler parses, calls one service function, and responds through
+`http/respond.ts`. No `try/catch` -- a thrown `AppError` or `ZodError`
+reaches the central error handler. No rule, no query. Authentication and
+the permission check are **not** in the handler: they run in hooks, driven
+by the route's `config` (`http/authentication.ts`); a route with neither
+`permission` nor `public: true` fails to register.
 
-```ts
-import { Router } from "<http-framework>";
+## The request pipeline (fixed order, `app.ts`)
 
-import { authenticate } from "../../middlewares/authenticate.middleware.js";
-import { requirePermission } from "../../middlewares/authorize.middleware.js";
-import { validate } from "../../middlewares/validate.middleware.js";
-import { PERMISSIONS } from "../../constants/permissions.constants.js";
+1. `onRequest` -- request id, trace context, completion log line
+   (`http/request-context.ts`).
+2. `onRequest` -- authentication, inside the `/v1` scope
+   (`http/authentication.ts`).
+3. body parsing (Fastify), 1 MiB limit.
+4. `preHandler` -- the route's declared permission.
+5. handler.
+6. error handler -- every failure rendered as the error envelope
+   (`http/error-handler.ts`).
 
-import * as folderController from "./folder.controller.js";
-import { createFolderBodySchema, folderIdParamSchema } from "./folder.schema.js";
+Hooks throw `AppError`; they never write a response themselves.
 
-export const folderRoutes = Router();
+## Tests a module ships with
 
-folderRoutes.post(
-  "/",
-  authenticate,
-  requirePermission(PERMISSIONS.FOLDER_CREATE),
-  validate({ body: createFolderBodySchema }),
-  folderController.handleCreateFolder,
-);
-
-folderRoutes.get(
-  "/:folderId",
-  authenticate,
-  requirePermission(PERMISSIONS.FOLDER_READ),
-  validate({ params: folderIdParamSchema }),
-  folderController.handleGetFolder,
-);
-```
-
----
-
-## Middleware template
-
-```ts
-// tenant-scope.middleware.ts
-import type { RequestHandler } from "<http-framework>";
-
-import { AppError } from "@image-delivery/errors";
-import { buildTenantContext } from "@image-delivery/tenancy";
-
-/**
- * Builds the request's TenantContext from the *verified credential only*.
- * Never from a header, query parameter, or body field the caller controls.
- */
-export const tenantScope: RequestHandler = (req, _res, next) => {
-  const credential = req.credential;
-  if (!credential) throw new AppError("api_key_missing");
-
-  req.tenantContext = buildTenantContext({
-    tenantId: credential.tenantId,
-    projectId: credential.projectId,
-    applicationId: credential.applicationId,
-    permissions: credential.permissions,
-    requestId: req.requestId,
-  });
-
-  next();
-};
-```
-
-Middleware rules:
-
-- One concern per middleware. A middleware that authenticates *and* rate
-  limits cannot be reordered or reused.
-- Middleware throws `AppError`; it never writes an error response itself.
-  The central error handler owns that.
-- Middleware MUST NOT perform a database write. Reads are acceptable
-  (credential resolution), cached per section 16.
-- Order is fixed in `app.ts` and documented there; see section 5 of
-  [`01-CODING-STANDARDS.md`](./01-CODING-STANDARDS.md).
-
-## Job template
-
-See section 17 of [`01-CODING-STANDARDS.md`](./01-CODING-STANDARDS.md) and
-[`08-CACHE-QUEUE-STANDARDS.md`](./08-CACHE-QUEUE-STANDARDS.md).
+| File | Proves |
+|---|---|
+| `*.crypto.test.ts`, `*.schema.test.ts`, `*.mapper.test.ts` (unit) | pure logic, schema edges |
+| `tests/<module>.int.test.ts` | the service against a real database |
+| `tests/<module>-http.int.test.ts` | HTTP: status codes, the permission per route, **the cross-tenant 404 on every `:id` route**, and any "no escalation" rule |
 
 ## Checklist for a new module
 
-- [ ] `docs/API/*.md` specifies the endpoints precisely (write it first if not)
-- [ ] `*.types.ts` -- branded id + row/domain/wire triple
+- [ ] `docs/API/*.md` specifies the endpoints (write it first if not)
 - [ ] `*.constants.ts` -- limits, each tracing to a `docs/` value
-- [ ] `*.schema.ts` -- `.strict()` schemas, every string bounded
-- [ ] `*.mapper.ts` -- pure, with its own test
+- [ ] `*.types.ts` + `*.mapper.ts` -- row/domain/wire; secrets never in the row type
+- [ ] `*.schema.ts` -- `.strict()`, every string and array bounded
 - [ ] `*.repository.ts` -- `ctx` first, every query through `scoped()`
-- [ ] `*.service.ts` -- rules, transactions, `AppError`s
-- [ ] `*.controller.ts` -- parse, call, respond; no `try/catch`
-- [ ] `*.routes.ts` -- fixed middleware order, explicit permission
-- [ ] `*.service.test.ts` + `*.mapper.test.ts`
-- [ ] `tests/integration/<module>-api.int.test.ts` with the cross-tenant 404
-- [ ] Permission constants added, seeded, and deny-path tested
+- [ ] `*.service.ts` -- a factory; rules, transactions, `AppError`s; absent == foreign
+- [ ] `*.routes.ts` -- every route declares `permission` (or `public: true`, listed in `docs/API/02`)
+- [ ] registered in `app.ts` inside the `/v1` scope, after authentication
+- [ ] unit tests + service integration test + HTTP integration test with the cross-tenant 404s
 - [ ] `MEMORY/records/{TASK-ID}.md` + `TASKS/PROGRESS.md`
 
 ## Acceptance Criteria
 
-- [x] A complete vertical slice is shown for one real module, not fragments.
-- [x] Each template states what the layer must not do, not only what it does.
+- [x] A complete vertical slice is shown for one real module, taken from
+      working, tested code.
+- [x] Each layer states what it must not do, and the lint rules that enforce
+      it are named.
 - [x] The row/domain/wire separation and the `ctx`-first rule appear in every
-      template that they apply to.
-
-## Open Questions
-
-- `P0-08` replaces `<http-framework>` with concrete types, and fixes whether
-  `validate` middleware plus an in-controller `parse` is redundant (the
-  current rule keeps both: the middleware rejects early, the parse produces
-  the typed value).
-- `P0-06` fixes the query-builder syntax shown in the repository template.
-  The `scoped(ctx, table, tx)` contract is what must survive that change.
+      template they apply to.
 
 ## Related Documents
 
 - `docs/ENGINEERING/01-CODING-STANDARDS.md` (sections 5-9)
 - `docs/ENGINEERING/07-REPOSITORY-DATABASE-STANDARDS.md`
-- `docs/API/17-FOLDER-COLLECTION-API.md` (the module used as the example)
-- `docs/SECURITY/11-IDOR-BOLA-PREVENTION.md`
+- `services/api/src/modules/api-keys/` (the source this document abridges)

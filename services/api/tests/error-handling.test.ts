@@ -5,6 +5,7 @@ import { AppError } from "@image-delivery/errors";
 import { createLogger } from "@image-delivery/logger";
 
 import { buildApp } from "../src/app";
+import { stubApiKeys } from "./support/stub-api-keys";
 
 import type { FastifyInstance } from "fastify";
 
@@ -26,6 +27,7 @@ beforeAll(async () => {
       destination: { write: (c: string) => void chunks.push(c) },
     }),
     readinessChecks: {},
+    apiKeys: stubApiKeys(),
   });
   logs = () =>
     chunks

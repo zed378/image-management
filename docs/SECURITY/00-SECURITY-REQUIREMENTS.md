@@ -43,7 +43,7 @@ Detail: [`10-MULTI-TENANT-SECURITY.md`](./10-MULTI-TENANT-SECURITY.md),
 
 | ID | Level | Requirement | Enforced by | Status |
 |---|---|---|---|---|
-| SEC-TEN-01 | MUST | The system SHALL derive the tenant of a request only from its verified credential, never from a header, query parameter, body field, or path segment. | test | P1-03 |
+| SEC-TEN-01 | MUST | The system SHALL derive the tenant of a request only from its verified credential, never from a header, query parameter, body field, or path segment. | test | Done (P1-03) |
 | SEC-TEN-02 | MUST | Every query on a tenant-owned table SHALL be filtered by `tenant_id` through `scoped()`; an unscoped query is permitted only through the audited `unsafeUnscoped` escape hatch in admin/maintenance code. | lint + test | P1-05, P0-11 |
 | SEC-TEN-03 | MUST | A request for a resource owned by another tenant SHALL return `404` with the same code, message and shape as a genuinely absent resource. | test (per `:id` route) | P1-06 |
 | SEC-TEN-04 | MUST | Every child row SHALL reference its parent by the composite `(parent_id, tenant_id)` foreign key, so the database refuses a cross-tenant link. | test | Done (P0-06), extended P1-01 |
@@ -58,12 +58,12 @@ Detail: [`03-AUTHENTICATION.md`](./03-AUTHENTICATION.md),
 
 | ID | Level | Requirement | Enforced by | Status |
 |---|---|---|---|---|
-| SEC-AUTH-01 | MUST | The system SHALL store only a keyed hash of an API key secret (HMAC-SHA256 under a server-side pepper, or a slow KDF), never the secret or an unkeyed hash of it. | test | P1-02 |
-| SEC-AUTH-02 | MUST | An API key secret SHALL be returned exactly once, in the creation response. | test | P1-02 |
-| SEC-AUTH-03 | MUST | Credential comparison SHALL be constant-time (`crypto.timingSafeEqual`). | test + review | P1-02 |
-| SEC-AUTH-04 | MUST | "Unknown key" and "wrong secret" SHALL produce the same response (`api_key_invalid`). | test | P1-02 |
-| SEC-AUTH-05 | MUST | Revoking a key SHALL take effect on the next request, including through any credential cache. | test | P1-02 |
-| SEC-AUTH-06 | SHOULD | Failed authentication attempts SHALL be rate limited per source, with a stricter anonymous bucket. | test | P5-03 |
+| SEC-AUTH-01 | MUST | The system SHALL store only a keyed hash of an API key secret (HMAC-SHA256 under a server-side pepper, or a slow KDF), never the secret or an unkeyed hash of it. | test | Done (P1-02) |
+| SEC-AUTH-02 | MUST | An API key secret SHALL be returned exactly once, in the creation response. | test | Done (P1-02) |
+| SEC-AUTH-03 | MUST | Credential comparison SHALL be constant-time (`crypto.timingSafeEqual`). | test + review | Done (P1-02) |
+| SEC-AUTH-04 | MUST | "Unknown key" and "wrong secret" SHALL produce the same response (`api_key_invalid`). | test | Done (P1-02, P1-03) |
+| SEC-AUTH-05 | MUST | Revoking a key SHALL take effect on the next request, including through any credential cache. | test | Done (P1-02) |
+| SEC-AUTH-06 | SHOULD | Failed authentication attempts SHALL be rate limited per source, with a stricter anonymous bucket. | test | Floor done (P1-03, in-memory); P5-03 |
 
 ## 3. Authorization
 
@@ -72,7 +72,7 @@ Detail: [`07-AUTHORIZATION.md`](./07-AUTHORIZATION.md),
 
 | ID | Level | Requirement | Enforced by | Status |
 |---|---|---|---|---|
-| SEC-AZ-01 | MUST | Every route SHALL declare the permission it requires; a route without a declaration SHALL fail to register. | test | P1-04 |
+| SEC-AZ-01 | MUST | Every route SHALL declare the permission it requires; a route without a declaration SHALL fail to register. | test | Done (P1-03: route contract); matrix P1-04 |
 | SEC-AZ-02 | MUST | Authorization SHALL be two checks: a permission gate on the action and a scoped query on the row. Neither alone is sufficient. | test | P1-04 |
 | SEC-AZ-03 | MUST | Default role grants SHALL be least-privilege; no role other than owner may manage credentials or members. | test | P1-04 |
 

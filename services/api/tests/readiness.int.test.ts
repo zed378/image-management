@@ -12,6 +12,7 @@ import { createLogger } from "@image-delivery/logger";
 import { LocalFileSystemAdapter } from "@image-delivery/storage-adapter";
 
 import { buildApp } from "../src/app";
+import { stubApiKeys } from "./support/stub-api-keys";
 import { readinessChecks } from "../src/readiness";
 
 import type { FastifyInstance } from "fastify";
@@ -46,6 +47,7 @@ describe("/readyz against real dependencies", () => {
     app = await buildApp({
       logger: createLogger({ service: "api", version: "test", level: "silent" }),
       readinessChecks: readinessChecks({ db, redis, storage }),
+      apiKeys: stubApiKeys(),
     });
   });
 

@@ -65,11 +65,24 @@ exists.
 | `POST /v1/applications/{application_id}/api-keys/{key_id}/rotate` | Issue a replacement; the old key expires after `overlap_seconds` (default 86400, max 604800) |
 | `POST /v1/applications/{application_id}/api-keys/{key_id}/revoke` | Revoke immediately |
 
-Request and response shapes are the key-management module's schemas
-(`services/api/src/modules/api-keys/api-key.schema.ts`, `api-key.types.ts`
-`ApiKeyWire`); the HTTP routes are mounted by `P1-03`, behind
-authentication. The first key of an installation comes from the operator
-`provision` command (`docs/SECURITY/04` "Issuance").
+| Route | Permission |
+|---|---|
+| create | `api-key:create` |
+| list, get | `api-key:read` |
+| rotate | `api-key:update` |
+| revoke | `api-key:delete` |
+
+Create body: `{ name, environment: "live"|"test", permissions: [...],
+all_projects: true }` or `{ ..., project_ids: [...] }` (exactly one form).
+Create and rotate answer `201` with `Location` and the key's wire shape plus
+`key` -- the plaintext, the only time it is ever returned. A key cannot
+grant more than the key that issues it (`docs/SECURITY/04`). Shapes:
+`services/api/src/modules/api-keys/api-key.schema.ts`, `ApiKeyWire` in
+`api-key.types.ts`. The first key of an installation comes from the
+operator `provision` command.
+
+Repeated failed authentications from one address are answered `429
+rate_limited` with `Retry-After` (`docs/SECURITY/03`).
 
 ## Acceptance Criteria
 

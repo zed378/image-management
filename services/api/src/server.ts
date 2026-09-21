@@ -15,6 +15,9 @@ import { createStorageAdapter } from "@image-delivery/storage-adapter";
 
 import { buildApp } from "./app";
 import { loadApiConfig, type ApiConfig } from "./config";
+import { createCredentialLookup } from "./modules/api-keys/api-key.authentication";
+import { createApiKeyService } from "./modules/api-keys/api-key.service";
+import { createLastUsedTracker } from "./modules/api-keys/last-used-tracker";
 import { readinessChecks } from "./readiness";
 
 const loadConfigOrExit = (): ApiConfig => {
@@ -55,7 +58,19 @@ const redis = createRedisClient(config.redis.url, "api", (err) => {
 });
 const storage = await createStorageAdapter(config.storage);
 
-const app = await buildApp({ logger, readinessChecks: readinessChecks({ db, redis, storage }) });
+const lastUsed = createLastUsedTracker(createCredentialLookup(db).recordUse, {
+  onError: (err) => {
+    logger.warn({ err }, "recording API key use failed; will retry");
+  },
+});
+lastUsed.start();
+const apiKeys = createApiKeyService({ db, pepper: config.credentials.apiKeyPepper, lastUsed });
+
+const app = await buildApp({
+  logger,
+  readinessChecks: readinessChecks({ db, redis, storage }),
+  apiKeys,
+});
 
 // Graceful shutdown: stop accepting, let in-flight requests finish, then
 // release connections. A second signal forces exit.
@@ -66,6 +81,7 @@ const shutdown = async (signal: string): Promise<void> => {
   logger.info({ signal }, "shutting down");
   try {
     await app.close();
+    await lastUsed.stop();
     await Promise.allSettled([db.destroy(), redis.quit(), storage.close()]);
     logger.info("shutdown complete");
     process.exit(0);

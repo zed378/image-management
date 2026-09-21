@@ -33,7 +33,7 @@ Detail: [`TASKS/PHASE-1-TENANCY-AUTH.md`](./PHASE-1-TENANCY-AUTH.md)
 |---|---|---|---|---|---|
 | P1-01 | Full data model migrations | Done | `feat/P1-01-data-model` | squash | [record](../MEMORY/records/P1-01.md) |
 | P1-02 | API key issuance & hashed storage | Done | `feat/P1-02-api-keys` | squash | [record](../MEMORY/records/P1-02.md) |
-| P1-03 | Authentication middleware | Not started | - | - | - |
+| P1-03 | Authentication middleware | Done | `feat/P1-03-auth-middleware` | squash | [record](../MEMORY/records/P1-03.md) |
 | P1-04 | RBAC roles & permission checks | Not started | - | - | - |
 | P1-05 | Tenant isolation enforcement at the query layer | Not started | - | - | - |
 | P1-06 | IDOR/BOLA test suite as a CI gate | Not started | - | - | - |

@@ -57,6 +57,12 @@ index; the tenant comes *out* of the row, never from the request.
   all_projects | project_ids })`. Coverage is always explicit: every
   project of the application, or a listed subset that the database forces
   to be in that application (`api_key_projects_project_fk`).
+- **No escalation.** A caller can only issue a key whose permissions and
+  project coverage are within its own; and since rotating returns a working
+  plaintext for the old key's grant, it can only rotate a key within its own
+  grant too (`403 permission_denied`, tested). A key bound to an application
+  manages only that application's keys (another application's id answers
+  `404 application_not_found`). Platform-internal contexts are exempt.
 - The very first key of a new installation comes from the operator command
   `provision` (`node dist/provision.js`), which creates the tenant, its
   first application and project, and a bootstrap key scoped to key

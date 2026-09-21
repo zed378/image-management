@@ -41,7 +41,46 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
   const tenancy = createTenancyRepository(deps.db);
   const credentials = createCredentialLookup(deps.db);
 
+  /**
+   * A credential bound to an application manages only that application's
+   * keys; another application's id is answered as not found (SEC-TEN-03).
+   */
+  const assertApplicationInScope = (ctx: TenantContext, applicationId: string): void => {
+    if (ctx.applicationId !== null && ctx.applicationId !== applicationId) {
+      throw new AppError("application_not_found");
+    }
+  };
+
+  /**
+   * No escalation through key management: a caller can only issue (or, by
+   * rotating, obtain the plaintext of) a key whose permissions and project
+   * coverage are within its own. Platform-internal (system) contexts, which
+   * hold no permissions of their own, are exempt.
+   */
+  const assertWithinCallerGrant = (
+    ctx: TenantContext,
+    permissions: readonly string[],
+    projectAccess: "all" | readonly string[],
+  ): void => {
+    if (ctx.actor.type === "system") return;
+    const missing = permissions.filter((p) => !ctx.permissions.has(p));
+    const callerProjects = ctx.projectAccess;
+    const broaderCoverage =
+      callerProjects !== "all" &&
+      (projectAccess === "all" || projectAccess.some((p) => !callerProjects.has(p)));
+    if (missing.length > 0 || broaderCoverage) {
+      throw new AppError("permission_denied", {
+        message: "A key cannot grant more than the credential that issues it.",
+        details: [
+          ...missing.map(() => ({ field: "permissions", reason: "exceeds_caller" })),
+          ...(broaderCoverage ? [{ field: "project_ids", reason: "exceeds_caller" }] : []),
+        ],
+      });
+    }
+  };
+
   const requireKey = async (ctx: TenantContext, applicationId: string, keyId: string) => {
+    assertApplicationInScope(ctx, applicationId);
     const key = await keys.findById(ctx, applicationId, keyId);
     // Absent and foreign-tenant are indistinguishable (SEC-TEN-03).
     if (!key) throw new AppError("api_key_not_found");
@@ -58,6 +97,8 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
     body: CreateApiKeyBody,
   ): Promise<IssuedApiKey> =>
     deps.db.transaction().execute(async (tx) => {
+      assertApplicationInScope(ctx, applicationId);
+      assertWithinCallerGrant(ctx, body.permissions, body.all_projects ? "all" : body.project_ids);
       const application = await tenancy.findApplication(ctx, applicationId, tx);
       if (!application) throw new AppError("application_not_found");
 
@@ -95,8 +136,10 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
       return { apiKey, plaintext: generated.plaintext };
     });
 
-  const list = (ctx: TenantContext, applicationId: string): Promise<ApiKey[]> =>
-    keys.listByApplication(ctx, applicationId);
+  const list = async (ctx: TenantContext, applicationId: string): Promise<ApiKey[]> => {
+    assertApplicationInScope(ctx, applicationId);
+    return keys.listByApplication(ctx, applicationId);
+  };
 
   const get = (ctx: TenantContext, applicationId: string, keyId: string): Promise<ApiKey> =>
     requireKey(ctx, applicationId, keyId);
@@ -112,8 +155,11 @@ export const createApiKeyService = (deps: ApiKeyServiceDeps) => {
     body: RotateApiKeyBody,
   ): Promise<IssuedApiKey> =>
     deps.db.transaction().execute(async (tx) => {
+      assertApplicationInScope(ctx, applicationId);
       const old = await keys.findById(ctx, applicationId, keyId, tx);
       if (!old) throw new AppError("api_key_not_found");
+      // Rotating hands back a working plaintext for the old key's grant.
+      assertWithinCallerGrant(ctx, old.permissions, old.projectAccess);
       if (old.status !== "active") {
         throw new AppError("invalid_state", { message: "Only an active API key can be rotated." });
       }

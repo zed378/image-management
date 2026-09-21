@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createLogger } from "@image-delivery/logger";
 
 import { buildApp } from "../src/app";
+import { stubApiKeys } from "./support/stub-api-keys";
 
 import type { ReadinessCheck } from "../src/modules/health/health.routes";
 
@@ -19,7 +20,7 @@ const setup = async (
     level: "info",
     destination: { write: (c: string) => void chunks.push(c) },
   });
-  const app = await buildApp({ logger, readinessChecks: checks });
+  const app = await buildApp({ logger, readinessChecks: checks, apiKeys: stubApiKeys() });
   const logs = (): Record<string, unknown>[] =>
     chunks
       .join("")

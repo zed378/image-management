@@ -2,11 +2,15 @@ import Fastify, { LogController, type FastifyBaseLogger, type FastifyInstance } 
 
 import { newId } from "@image-delivery/schema";
 
+import { registerAuthentication } from "./http/authentication";
 import { registerErrorHandler } from "./http/error-handler";
 import { registerRequestContext } from "./http/request-context";
 import { sendError } from "./http/respond";
+import { registerApiKeyRoutes } from "./modules/api-keys/api-key.routes";
 import { registerHealthRoutes, type ReadinessCheck } from "./modules/health/health.routes";
 
+import type { FailureLimiter } from "./http/failure-limiter";
+import type { ApiKeyService } from "./modules/api-keys/api-key.service";
 import type { Logger } from "@image-delivery/logger";
 
 // Composition only (docs/ENGINEERING/02): build the Fastify instance, mount
@@ -18,6 +22,11 @@ export type AppOptions = {
   readonly readinessChecks: Readonly<Record<string, ReadinessCheck>>;
   /** Trust X-Forwarded-* from these proxy addresses/CIDRs (the load balancer), or all. */
   readonly trustProxy?: boolean | string | readonly string[];
+  readonly apiKeys: ApiKeyService;
+  /** Failed-authentication limiter (tests inject one with a small budget). */
+  readonly authFailures?: FailureLimiter;
+  /** Extra /v1 routes, registered after authentication (tests). */
+  readonly registerExtraRoutes?: (v1: FastifyInstance) => void;
 };
 
 export const API_VERSION_PREFIX = "/v1";
@@ -54,9 +63,16 @@ export const buildApp = async (options: AppOptions): Promise<FastifyInstance> =>
   registerHealthRoutes(app, options.readinessChecks);
 
   // Every versioned route lives under /v1 (docs/API/04-API-VERSIONING.md).
+  // Authentication is registered first inside the scope, so every route
+  // after it -- every module -- is protected by default (P1-03).
   await app.register(
-    async () => {
-      // Modules register here as they land (P1-02 onward).
+    async (v1) => {
+      registerAuthentication(v1, {
+        authenticate: options.apiKeys.authenticate,
+        ...(options.authFailures ? { failures: options.authFailures } : {}),
+      });
+      registerApiKeyRoutes(v1, options.apiKeys);
+      options.registerExtraRoutes?.(v1);
     },
     { prefix: API_VERSION_PREFIX },
   );

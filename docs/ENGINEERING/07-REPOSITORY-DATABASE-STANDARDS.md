@@ -19,15 +19,16 @@ that choice must satisfy.
 
 ```ts
 // packages/db/src/scoped.ts
+// Abridged; the full map mirrors docs/DATABASE/00 "Table ownership".
 const TENANT_OWNED_TABLES = {
   assets:            { tenant: "tenant_id", project: "project_id" },
   asset_versions:    { tenant: "tenant_id", project: "project_id" },
-  derivatives:       { tenant: "tenant_id", project: "project_id" },
+  image_derivatives: { tenant: "tenant_id", project: "project_id" },
   folders:           { tenant: "tenant_id", project: "project_id" },
-  webhooks:          { tenant: "tenant_id", project: "project_id" },
-  api_keys:          { tenant: "tenant_id", project: "project_id" },
-  usage_records:     { tenant: "tenant_id", project: "project_id" },
-  audit_log_entries: { tenant: "tenant_id", project: null },
+  usage:             { tenant: "tenant_id", project: "project_id" },
+  webhooks:          { tenant: "tenant_id", project: null }, // per application
+  api_keys:          { tenant: "tenant_id", project: null }, // per application
+  audit_logs:        { tenant: "tenant_id", project: null },
   projects:          { tenant: "tenant_id", project: null },
 } as const;
 
@@ -132,14 +133,14 @@ The uniqueness rule is where this platform's correctness actually lives.
 Two constraints are load-bearing:
 
 ```sql
--- Idempotency: a retried create must not produce a second asset.
-create unique index assets_idempotency_uk
-  on assets (tenant_id, project_id, idempotency_key)
-  where idempotency_key is not null;
+-- Idempotency: a retried create must not produce a second resource.
+-- Its own table (ADR-022 point 10), because every mutating POST needs it.
+create unique index idempotency_keys_uk
+  on idempotency_keys (tenant_id, project_id, idempotency_key);
 
 -- Derivative identity (ADR-004/009): one derivative per (version, params).
-create unique index derivatives_identity_uk
-  on derivatives (tenant_id, project_id, asset_version_id, params_hash);
+create unique index image_derivatives_identity_uk
+  on image_derivatives (tenant_id, project_id, asset_version_id, params_hash);
 ```
 
 The second one is the database's independent guarantee of the invariant

@@ -1,33 +1,74 @@
 # 14 - Usage
 
-> Category: **Database & Data Model** (`docs/DATABASE/`) &nbsp;|&nbsp; Status: Draft specification &nbsp;|&nbsp; Owner: TBD
+> Category: **Database** (`docs/DATABASE/`) &nbsp;|&nbsp; Status: Final (v1) &nbsp;|&nbsp; Owner: TBD
 
 ## Purpose
 
-Specify usage for the Image Management & Delivery Platform. Time-bucketed counters (storage bytes, bandwidth bytes, transformation count, request count) per tenant/application/project, written by an async aggregator, never computed synchronously on the request path.
+Time-bucketed usage per project, written only by the asynchronous
+aggregator (`P1-08`) -- never computed on a request path. Quota checks,
+the dashboard and billing read rollups of it.
 
 ## Category Mandate
 
-The relational data model underlying assets, tenancy, permissions, usage, and audit. Each document specifies one table or table family: its columns, constraints, indexes, and the invariants the application layer must enforce on top of the schema.
+The relational data model underlying assets, tenancy, permissions, usage,
+and audit.
 
-## Key Topics To Specify
+---
 
-- Time-bucketed counters (storage bytes, bandwidth bytes, transformation count, request count) per tenant/application/project, written by an async aggregator, never computed synchronously on the request path.
+<!-- schema:usage -->
+Table `usage` (generated from the migrated schema):
+
+| Column | Type | Null | Default |
+|---|---|---|---|
+| `tenant_id` | `character(26)` | no |  |
+| `application_id` | `character(26)` | no |  |
+| `project_id` | `character(26)` | no |  |
+| `metric` | `text` | no |  |
+| `day` | `date` | no |  |
+| `value` | `bigint` | no | `0` |
+| `updated_at` | `timestamp with time zone` | no | `now()` |
+
+Constraints:
+
+- `usage_metric_check`: `CHECK ((metric = ANY (ARRAY['storage_bytes'::text, 'bandwidth_bytes'::text, 'transformations'::text, 'requests'::text, 'assets'::text])))`
+- `usage_value_check`: `CHECK ((value >= 0))`
+- `usage_project_fk`: `FOREIGN KEY (project_id, application_id, tenant_id) REFERENCES projects(id, application_id, tenant_id) ON DELETE RESTRICT`
+- `usage_pkey`: `PRIMARY KEY (project_id, metric, day)`
+
+Indexes:
+
+- `usage_tenant_day_idx`: `(tenant_id, day, metric)`
+<!-- /schema:usage -->
+
+## Model
+
+- **Bucket**: one UTC calendar day (`day`, returned as the string
+  `YYYY-MM-DD`; `packages/db` parses `date` as a string so a server time zone
+  cannot shift it).
+- **Grain**: one row per `(project_id, metric, day)` -- the primary key, so
+  the aggregator's write is an idempotent upsert.
+- `tenant_id` and `application_id` are denormalized for rollups and
+  FK-checked against the project (`usage_project_fk`), so they cannot drift.
+
+| Metric | Kind | `value` means |
+|---|---|---|
+| `requests` | counter | API and delivery requests that day |
+| `bandwidth_bytes` | counter | bytes delivered that day |
+| `transformations` | counter | derivatives generated that day |
+| `storage_bytes` | gauge | bytes stored at the end of the day (originals + derivatives) |
+| `assets` | gauge | live assets at the end of the day |
+
+A month's counter is the sum of its days; a month's gauge is its latest day
+(for quota) or its maximum (for billing, `docs/PLAN/17`).
 
 ## Acceptance Criteria
 
-- [ ] The document states every default value explicitly -- nothing is left to "whatever the library does".
-- [ ] Every rule in this document is either testable by an automated test or explicitly marked as a manual/operational check.
-- [ ] Cross-references to related documents are correct and bidirectional (the related document links back here).
-
-## Open Questions
-
-- Confirm this against the current PLAN/17-PRICING-ENTITLEMENT.md tiering before implementation starts.
-- Flag any decision here that should be promoted to a MEMORY/DECISIONS.md ADR once made.
+- [x] The column table is generated from the migrated schema and checked on
+      every CI run.
+- [x] The day is returned as a calendar day regardless of time zone (tested).
 
 ## Related Documents
 
-- `docs/DATABASE/README.md` (category index)
-- `docs/PLAN/01-PRODUCT-REQUIREMENTS.md` (traces every requirement back here)
-- `TASKS/` (the phase and task that implements this document)
-- `MEMORY/DECISIONS.md` (record the decision here once made, don't leave it only in this file)
+- `docs/DATABASE/15-QUOTAS.md`
+- `docs/PLAN/15-QUOTA-LIMITS.md`
+- `docs/DATABASE/18-DATA-RETENTION.md`

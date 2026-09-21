@@ -39,8 +39,10 @@ Tenant                         billing and isolation boundary
 |---|---|---|
 | Primary key `id char(26)`, a ULID, with a `CHECK` on the Crockford-base32 shape | Sortable, non-enumerable, coordination-free (`ADR-003`) | `ulidPrimaryKey()` in `packages/db/src/migrations/ddl.ts` |
 | Every tenant-owned row carries `tenant_id`; every project-owned row also carries `project_id`; both `NOT NULL` | `scoped()` filters on them directly, with no join (`ADR-005`) | Migration review; `P1-01` adds a migration-lint check |
-| **Composite foreign keys** `(parent_id, tenant_id) -> parent (id, tenant_id)` | A child whose tenant disagrees with its parent's is unrepresentable, not merely unlikely | Constraint; tested (`migrations.int.test.ts`) |
-| `created_at`, `updated_at`, `deleted_at`, all `timestamptz` UTC | Soft delete; auditability | `timestampColumns()` |
+| **Composite foreign keys** `(parent_id, tenant_id) -> parent (id, tenant_id)` | A child whose tenant disagrees with its parent's is unrepresentable, not merely unlikely | Constraint; the migration lint fails any FK into tenant data without `tenant_id` (`data-model.int.test.ts`) |
+| A reference between two **project-owned** rows also carries `project_id`: `(parent_id, project_id, tenant_id)` | Linking an asset to another project's folder, tag or collection is unrepresentable (`MULTI-TENANCY/03`, ADR-022) | Constraint; migration lint |
+| Entities: `created_at`, `updated_at`, `deleted_at`, all `timestamptz` UTC | Soft delete; auditability | `timestampColumns()` |
+| Rows with no lifecycle of their own (join rows, metadata entries, grants, delivery attempts, audit entries, usage buckets) have no `deleted_at`; they are hard-deleted (or never deleted) | A soft-deleted link to a live asset is a state nobody can explain | Per-table documents |
 | `updated_at` maintained by a trigger | Correct even for an `UPDATE` that forgets to set it | `set_updated_at()` trigger |
 | Enum-like columns are `text` + `CHECK`, never a Postgres `enum` | Adding a value must not need an exclusive lock | Convention (`docs/ENGINEERING/07`) |
 | `ON DELETE RESTRICT` by default | Deleting a parent never silently cascades through tenant data | Constraint |
@@ -65,14 +67,27 @@ Only the owner's repository reads or writes it.
 | `collections`, `collection_assets` | `collections` | project | `P1-01` |
 | `tags`, `asset_tags` | `tags` | project | `P1-01` |
 | `role_assignments` | `tenancy` | tenant | `P1-01` |
-| `api_keys` | `api-keys` | tenant | `P1-01` |
-| `usage`, `quotas` | `usage` | project / global | `P1-01` |
+| `api_keys`, `api_key_projects` | `api-keys` | tenant | `P1-01` |
+| `usage` | `usage` | project | `P1-01` |
+| `quotas` | `usage` | global | `P1-01` |
+| `quota_overrides` | `usage` | tenant | `P1-01` |
 | `webhooks`, `webhook_deliveries` | `webhooks` | tenant | `P1-01` |
 | `audit_logs` | `audit` | tenant | `P1-01` |
 | `idempotency_keys` | `idempotency` | project | `P2-02` |
 
 "global" tables (`tenants`, `quotas`) are explicitly documented as such; every
-other table traces to a tenant.
+other table traces to a tenant. The migration lint
+(`packages/test-utils/tests/data-model.int.test.ts`) holds the same
+classification and fails on any table it does not know, so a new table
+cannot skip this decision.
+
+## Keeping the documents exact
+
+Each table document embeds a column/constraint/index block generated from
+the migrated schema (`<!-- schema:<table> -->`), and
+`schema-docs.int.test.ts` fails CI when a document drifts from the schema.
+After changing a table: `UPDATE_SCHEMA_DOCS=1 pnpm vitest run --project
+integration schema-docs`, then update the prose.
 
 ## Migrations
 

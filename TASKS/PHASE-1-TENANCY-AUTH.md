@@ -21,14 +21,16 @@ tenant's data.
 **Steps**
 1. Write migrations for: `assets`, `asset_versions`, `asset_metadata`,
    `image_derivatives`, `folders`, `collections`, `collection_assets`
-   (join), `tags`, `asset_tags` (join), `permissions`, `api_keys`, `usage`,
-   `quotas`, `webhooks`, `webhook_deliveries`, `audit_logs`.
+   (join), `tags`, `asset_tags` (join), `role_assignments` (the
+   "permissions" table; ADR-022), `api_keys` (+ `api_key_projects`),
+   `usage`, `quotas` (+ `quota_overrides`), `webhooks`,
+   `webhook_deliveries`, `audit_logs`.
 2. Every tenant-scoped table gets a `tenant_id` (or transitively
    `project_id` -> `application_id` -> `tenant_id`) column, `NOT NULL`, indexed.
 3. Add the indexes the known query patterns need: assets by
    `(project_id, folder_id)`, assets by `(project_id, created_at)` for
-   pagination, tags by `(project_id, tag)`, api_keys by `hashed_key`
-   (unique).
+   pagination, tags by `(project_id, tag)`, api_keys by `key_hash`
+   (unique). Every index leads with `tenant_id` (`docs/ENGINEERING/07`).
 4. Update `docs/DATABASE/01-ERD.md` with the complete diagram.
 
 **Definition of Done**
@@ -47,8 +49,10 @@ tenant's data.
 
 **Steps**
 1. `POST /v1/admin/applications/:id/api-keys` (or dashboard-only for now):
-   generates a key, returns the plaintext exactly once, stores only a salted
-   hash (e.g. Argon2/bcrypt over a high-entropy secret).
+   generates a key, returns the plaintext exactly once, stores only
+   `HMAC-SHA256(pepper, secret)` over a 256-bit random secret, looked up by
+   the key id carried in the plaintext (ADR-022 point 4: a slow KDF adds
+   nothing against a 256-bit secret and cannot back a unique lookup).
 2. Support key scoping (which project(s), which permission set) at
    creation time.
 3. Support rotation (issue new, old remains valid for a configurable

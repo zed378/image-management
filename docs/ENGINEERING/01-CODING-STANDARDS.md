@@ -1032,8 +1032,8 @@ export const PERMISSIONS = {
 - Composite index column order follows the query's equality-then-range
   shape: `(tenant_id, project_id, created_at desc)` serves the default
   asset listing.
-- Unique index on `(tenant_id, project_id, params_hash, asset_version_id)`
-  for derivatives -- the database is the last line of defence against a
+- Unique index on `(tenant_id, project_id, asset_version_id, params_hash)`
+  for derivatives (`image_derivatives_identity_uk`) -- the database is the last line of defence against a
   duplicate derivative even if the hash function were called twice.
 - Every new index's effect is measured with `EXPLAIN (ANALYZE, BUFFERS)`
   on realistic row counts, and the plan goes in the task's `MEMORY/` record.

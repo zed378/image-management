@@ -830,3 +830,77 @@ third-party package its bundle imports; `scripts/check-bundle-deps.mjs` scans
 the bundle's external imports after every build and fails when one is
 undeclared. Third-party packages are never bundled (`skipNodeModulesBundle`),
 because several ship native binaries (sharp, ssh2).
+
+### ADR-022: Phase 1 data model -- the schema decisions the specification left open or contradicted
+- Status: Accepted
+- Date: 2026-09-21
+- Context: `P1-01` creates every remaining table, but `docs/DATABASE/05-18`
+  were one-sentence templates, and a sweep of `docs/` found contradictions
+  that the schema cannot leave open (table names, the scope of API keys and
+  webhooks, the API-key hash, asset status and visibility vocabularies,
+  where idempotency lives, derivative identity). A column has one type and
+  one constraint; "decide later" is not an option for DDL.
+- Decision:
+  1. **Names follow `docs/DATABASE/00`**: `role_assignments` (not
+     `permissions`), `image_derivatives`, `usage`, `audit_logs`.
+     Permissions are code (a role -> permission matrix, `P1-04`), not rows.
+  2. **Same-project integrity is a constraint.** Every project-owned table
+     exposes `unique (id, project_id, tenant_id)`, and a reference between
+     two project-owned rows (asset -> folder, collection member, tag link,
+     version -> asset) is a composite FK over all three columns. A
+     cross-project link (`docs/MULTI-TENANCY/03`) is unrepresentable, not
+     merely checked.
+  3. **API keys and webhooks belong to an application** (`MULTI-TENANCY/02`,
+     `API/00`): `tenant_id` + `application_id`, no `project_id`. Project
+     coverage of a key is `all_projects` or rows in `api_key_projects`,
+     whose composite FKs force the project to be in the key's own
+     application.
+  4. **API-key secret hash: HMAC-SHA256 under a server-side pepper**, looked
+     up by the key id carried in the plaintext key. The secret is 256 bits
+     from `crypto.randomBytes`, so a slow KDF adds no brute-force resistance
+     and costs every request a deliberate slowdown; bcrypt/argon2 would also
+     make the required unique lookup index impossible. `P1-02` owns the
+     key format; this ADR fixes the column (`key_hash char(64)`, unique).
+  5. **Asset lifecycle**: `status in (pending, processing, ready, failed)`;
+     deletion is `deleted_at` alone (one source of truth, the platform-wide
+     soft-delete rule), and "purged" means the row is gone.
+  6. **Visibility lives on the asset**, not the version, with the five
+     levels of `PLAN/21` lower-cased (`private, public, unlisted, signed,
+     expiring`), default `private`; the database rejects any other value so
+     an unknown level cannot fail open. `P5-01` specifies the semantics.
+  7. **Bytes-derived facts live on `asset_versions`** (size, dimensions,
+     content type, checksum SHA-256, storage key, focal point). The asset
+     points at its current version; listing joins through the pointer rather
+     than keeping a denormalized copy that can drift.
+  8. **Object keys use the version id** (`.../originals/{asset}/{version_id}.{ext}`,
+     derivatives `.../{version_id}/{params_hash}.{ext}`), and the key is
+     stored on the row, so a later key-scheme change never orphans an object.
+  9. **Derivative identity** is `unique (tenant_id, project_id,
+     asset_version_id, params_hash)` (equality order of the lookup). The
+     hash function and encoding are `P3-02`'s; the column accepts 16-128
+     lower-case hex characters.
+  10. **Idempotency keys are their own table** (`idempotency_keys`, `P2-02`),
+      because every mutating POST needs them, not only asset creation.
+  11. **Usage** is a daily bucket per project and metric (tenant and
+      application denormalized for rollups, FK-checked); **quotas** are the
+      global per-plan defaults, and per-tenant overrides live in
+      `quota_overrides`. Limits are data; no number is in a migration.
+  12. **Audit logs are append-only in the database**, not only by grant: a
+      trigger rejects every `UPDATE`, and `DELETE` unless the retention job
+      sets `image_delivery.audit_purge`. Actions by a platform operator are
+      recorded under the affected tenant with `actor_type = platform_admin`.
+  13. **Webhook secrets are encrypted, not hashed** -- the platform must
+      sign with them. Shown once at creation, stored as AES-256-GCM
+      ciphertext (`P6-03` owns the envelope).
+- Alternatives considered: `permissions` as a table of permission strings
+  (rejected: free-form strings are what `SECURITY/08` forbids); per-project
+  API keys (rejected: contradicts `MULTI-TENANCY/02`, and a customer with
+  staging + production would juggle keys); a status value `deleted` beside
+  `deleted_at` (rejected: two sources of truth disagree eventually);
+  denormalizing dimensions onto `assets` for filtering (rejected until a
+  measured query needs it); `assets.idempotency_key` (rejected, see 10).
+- Consequences: `TASKS/PHASE-1` (P1-01, P1-02), `PHASE-2` (P2-08),
+  `docs/ENGINEERING/01` and `07` are corrected in the same change. Retention
+  durations in `docs/DATABASE/18` are engineering defaults, each a config
+  value, pending `docs/PLAN/16`/`17`. `docs/ENGINEERING/05`'s folder template
+  error codes are reconciled when the templates are rewritten (`P1-02`).

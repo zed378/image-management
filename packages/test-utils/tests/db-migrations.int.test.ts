@@ -56,6 +56,19 @@ describe("migrations", () => {
     const up = await migrateToLatest(t.db);
     expect(up.applied).toEqual([latest]);
   });
+
+  it("roll every migration back to empty, in reverse order, then re-apply all", async () => {
+    const all = migrationNames();
+
+    const reverted: string[] = [];
+    for (let i = 0; i < all.length; i += 1) {
+      reverted.push(...(await migrateDownOne(t.db)).applied);
+    }
+    expect(reverted).toEqual([...all].reverse());
+    expect(await tableNames(t)).not.toContain("tenants");
+
+    expect((await migrateToLatest(t.db)).applied).toEqual(all);
+  });
 });
 
 describe("tenancy chain schema", () => {

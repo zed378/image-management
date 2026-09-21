@@ -7,6 +7,10 @@ import type { Database } from "./types";
 // strings by default. Every such value on this platform fits well inside
 // Number.MAX_SAFE_INTEGER (2^53, ~9 PB), so parse them as numbers once, here.
 pg.types.setTypeParser(pg.types.builtins.INT8, (value) => Number.parseInt(value, 10));
+// date columns (usage.day) would otherwise become a Date at midnight in the
+// *server's local* time zone, shifting a UTC day by the offset. Keep the
+// calendar day as the 'YYYY-MM-DD' string it is.
+pg.types.setTypeParser(pg.types.builtins.DATE, (value) => value);
 
 export type DbOptions = {
   readonly url: string;

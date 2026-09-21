@@ -31,7 +31,7 @@ Detail: [`TASKS/PHASE-1-TENANCY-AUTH.md`](./PHASE-1-TENANCY-AUTH.md)
 
 | Task | Title | Status | Branch | PR | MEMORY record |
 |---|---|---|---|---|---|
-| P1-01 | Full data model migrations | Not started | - | - | - |
+| P1-01 | Full data model migrations | Done | `feat/P1-01-data-model` | squash | [record](../MEMORY/records/P1-01.md) |
 | P1-02 | API key issuance & hashed storage | Not started | - | - | - |
 | P1-03 | Authentication middleware | Not started | - | - | - |
 | P1-04 | RBAC roles & permission checks | Not started | - | - | - |

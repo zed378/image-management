@@ -168,7 +168,8 @@ an isolation test per `P1-06`.
 - **Implements:** `docs/ASSET/09-ASSET-DELETION.md`, `docs/PLAN/16-RETENTION-POLICY.md`
 
 **Steps**
-1. `DELETE /v1/assets/:id` sets `status=deleted`, `deleted_at=now()`;
+1. `DELETE /v1/assets/:id` sets `deleted_at=now()` (the only deletion
+   marker; `status` keeps its lifecycle value, ADR-022 point 5);
    object stays in storage; asset disappears from default list/search
    results and from delivery (see `docs/API/14-IMAGE-DELIVERY-API.md`,
    returns `404` once deleted, even with a previously-valid signed URL --

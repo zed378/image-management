@@ -9,6 +9,7 @@ import {
   type RegisteredRoute,
 } from "./isolation/coverage";
 import { stubApiKeys } from "./support/stub-api-keys";
+import { stubAssets } from "./support/stub-assets";
 import { buildApp } from "../src/app";
 
 // P1-06 DoD: adding a /v1 route that takes an id without an isolation case
@@ -23,6 +24,7 @@ const registeredRoutes = async (
     logger: createLogger({ service: "api", version: "test", level: "silent" }),
     readinessChecks: {},
     apiKeys: stubApiKeys(),
+    assets: stubAssets(),
     onRoute: (r) => routes.push(r),
     ...(extra ? { registerExtraRoutes: extra } : {}),
   });

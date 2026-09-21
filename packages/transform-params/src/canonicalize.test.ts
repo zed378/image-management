@@ -259,3 +259,55 @@ describe("the Accept bucket (ADR-008)", () => {
     expect(bucketFromAccept(accept)).toBe(bucket);
   });
 });
+
+describe("edge cases of every step", () => {
+  it("treats a bare key, an undecodable key, and an undecodable foreign value as foreign", () => {
+    expect(canon("w=10&flag&%E0%A4%A=1&x=%E0%A4%A").ignored).toEqual(["flag"]);
+  });
+
+  it("rejects an undecodable value of a known parameter", () => {
+    expect(failure("w=%E0%A4%A").details).toEqual([{ field: "w", reason: "type" }]);
+  });
+
+  it.each([
+    ["ar=0:5&w=10", "ar", "out_of_range"],
+    ["ar=1:1000&w=100", "ar", "out_of_range"],
+    ["rect=a,b,c,d", "rect", "type"],
+    ["rect=0,0,0,5", "rect", "out_of_range"],
+    [`dl=${"x".repeat(256)}`, "dl", "out_of_range"],
+    ["w=3000&h=3000&dpr=2", "w", "pixel_budget_exceeded"],
+    ["h=6000&dpr=2", "h", "pixel_budget_exceeded"],
+  ])("%s -> %s / %s", (q, field, reason) => {
+    expect(failure(q).details).toEqual([{ field, reason }]);
+  });
+
+  it("accepts explicit q=auto, a hex bg, an explicit rotation, sharpen and flip", () => {
+    const result = canon("w=100&q=auto&f=jpeg&bg=ff00aa&rot=90&sharpen=10&flip=h");
+
+    expect(result.params).toMatchObject({
+      q: "80",
+      bg: "FF00AA",
+      rot: "90",
+      sharpen: "10",
+      flip: "h",
+    });
+  });
+
+  it("resolves g=face and imgix's g=faces through the resolver", () => {
+    const seen: string[] = [];
+    const resolveGravity = (mode: "auto" | "face") => {
+      seen.push(mode);
+      return { x: 1, y: 2, w: 3, h: 4 };
+    };
+
+    canon("w=10&h=10&fit=cover&g=face", { resolveGravity });
+    canon("w=10&h=10&fit=cover&g=faces", { resolveGravity });
+
+    expect(seen).toEqual(["face", "face"]);
+  });
+
+  it("snaps a height-only request, and checks the budget from the source aspect", () => {
+    expect(canon("h=401", { dimensionLadder: true }).params["h"]).toBe("640");
+    expect(canon("h=300").params).toMatchObject({ h: "300" });
+  });
+});

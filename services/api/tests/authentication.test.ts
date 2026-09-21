@@ -4,6 +4,7 @@ import { createLogger } from "@image-delivery/logger";
 
 import { buildApp } from "../src/app";
 import { stubApiKeys } from "./support/stub-api-keys";
+import { stubAssets } from "./support/stub-assets";
 import { createFailureLimiter } from "../src/http/failure-limiter";
 
 import type { FastifyInstance } from "fastify";
@@ -31,6 +32,7 @@ beforeAll(async () => {
     logger: quietLogger(),
     readinessChecks: {},
     apiKeys: stubApiKeys({ [READER]: { ...principal, permissions: ["asset:read"] } }),
+    assets: stubAssets(),
     authFailures: createFailureLimiter({ maxFailures: 3, windowMs: 60_000 }),
     registerExtraRoutes: (v1) => {
       // A route added "later": it declares only a permission, and is
@@ -150,6 +152,7 @@ describe("when the credential store is down", () => {
         ...stubApiKeys(),
         authenticate: () => Promise.reject(new Error("connect ECONNREFUSED 10.0.0.9:5432")),
       },
+      assets: stubAssets(),
       registerExtraRoutes: (v1) => {
         v1.get("/things", { config: { permission: "asset:read" } }, () => ({}));
       },
@@ -175,6 +178,7 @@ describe("the route contract (SEC-AZ-01)", () => {
         logger: quietLogger(),
         readinessChecks: {},
         apiKeys: stubApiKeys(),
+        assets: stubAssets(),
         registerExtraRoutes: (v1) => {
           v1.get("/forgotten", () => ({}));
         },

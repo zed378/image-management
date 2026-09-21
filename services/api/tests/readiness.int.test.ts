@@ -13,6 +13,7 @@ import { LocalFileSystemAdapter } from "@image-delivery/storage-adapter";
 
 import { buildApp } from "../src/app";
 import { stubApiKeys } from "./support/stub-api-keys";
+import { stubAssets } from "./support/stub-assets";
 import { readinessChecks } from "../src/readiness";
 
 import type { FastifyInstance } from "fastify";
@@ -48,6 +49,7 @@ describe("/readyz against real dependencies", () => {
       logger: createLogger({ service: "api", version: "test", level: "silent" }),
       readinessChecks: readinessChecks({ db, redis, storage }),
       apiKeys: stubApiKeys(),
+      assets: stubAssets(),
     });
   });
 

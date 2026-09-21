@@ -4,6 +4,7 @@ import { createLogger } from "@image-delivery/logger";
 
 import { buildApp } from "../src/app";
 import { stubApiKeys } from "./support/stub-api-keys";
+import { stubAssets } from "./support/stub-assets";
 
 import type { ReadinessCheck } from "../src/modules/health/health.routes";
 
@@ -20,7 +21,12 @@ const setup = async (
     level: "info",
     destination: { write: (c: string) => void chunks.push(c) },
   });
-  const app = await buildApp({ logger, readinessChecks: checks, apiKeys: stubApiKeys() });
+  const app = await buildApp({
+    logger,
+    readinessChecks: checks,
+    apiKeys: stubApiKeys(),
+    assets: stubAssets(),
+  });
   const logs = (): Record<string, unknown>[] =>
     chunks
       .join("")

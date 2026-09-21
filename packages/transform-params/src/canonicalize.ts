@@ -82,32 +82,28 @@ export type Canonical = {
 // HELPERS
 // ==========================================
 
-const reject = (field: string, reason: string): never => {
+// Function declarations (not arrow consts) so a call narrows types after it.
+function reject(field: string, reason: string): never {
   throw new AppError("invalid_transform_param", { details: [{ field, reason }] });
-};
+}
 
-const overSpecified = (field: string): never => {
+function overSpecified(field: string): never {
   throw new AppError("invalid_parameter_combination", {
     details: [{ field, reason: "over_specified" }],
   });
-};
+}
 
-const levenshtein = (a: string, b: string): number => {
-  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i += 1) {
-    let prev = row[0] ?? 0;
-    row[0] = i;
-    for (let j = 1; j <= b.length; j += 1) {
-      const tmp = row[j] ?? 0;
-      row[j] = Math.min(
-        (row[j] ?? 0) + 1,
-        (row[j - 1] ?? 0) + 1,
-        prev + (a[i - 1] === b[j - 1] ? 0 : 1),
-      );
-      prev = tmp;
-    }
-  }
-  return row[b.length] ?? 0;
+/** Whether `a` is within `k` single-character edits of `b` (k is at most 2). */
+const withinEdits = (a: string, b: string, k: number): boolean => {
+  if (a === b) return true;
+  if (k === 0) return false;
+  if (a === "" || b === "") return Math.abs(a.length - b.length) <= k;
+  if (a.charAt(0) === b.charAt(0)) return withinEdits(a.slice(1), b.slice(1), k);
+  return (
+    withinEdits(a.slice(1), b, k - 1) ||
+    withinEdits(a, b.slice(1), k - 1) ||
+    withinEdits(a.slice(1), b.slice(1), k - 1)
+  );
 };
 
 /**
@@ -115,14 +111,14 @@ const levenshtein = (a: string, b: string): number => {
  * name long enough for the distance to mean something. Short names (w, h,
  * q, f, g, ...) only match by case, else every short foreign parameter
  * (`v`, `t`) would be rejected. Tuned per IDP/03's open question: distance
- * <= 2 for names of 5+ characters, <= 1 for 3-4 characters.
+ * <= 2 for names of 5+ characters, <= 1 for 3-4 characters (ADR-023).
  */
 export const isNearMiss = (key: string): boolean => {
   const lower = key.toLowerCase();
   return KNOWN_NAMES.some((known) => {
     if (lower === known) return key !== known;
     const allowed = known.length >= 5 ? 2 : known.length >= 3 ? 1 : 0;
-    return allowed > 0 && levenshtein(lower, known) <= allowed;
+    return allowed > 0 && withinEdits(lower, known, allowed);
   });
 };
 
@@ -135,9 +131,9 @@ const decode = (raw: string): string | null => {
 };
 
 const integer = (field: string, value: string, min: number, max: number): number => {
-  if (!/^\d{1,9}$/.test(value)) return reject(field, "type");
+  if (!/^\d{1,9}$/.test(value)) reject(field, "type");
   const n = Number(value);
-  if (n < min || n > max) return reject(field, "out_of_range");
+  if (n < min || n > max) reject(field, "out_of_range");
   return n;
 };
 
@@ -153,10 +149,8 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
   for (const part of query.replace(/^\?/, "").split("&")) {
     if (part === "") continue;
     const eq = part.indexOf("=");
-    const rawKey = eq < 0 ? part : part.slice(0, eq);
-    const rawValue = eq < 0 ? "" : part.slice(eq + 1);
-    const key = decode(rawKey);
-    const value = decode(rawValue);
+    const key = decode(eq < 0 ? part : part.slice(0, eq));
+    const value = decode(eq < 0 ? "" : part.slice(eq + 1));
     if (key === null) continue; // an undecodable key cannot be ours: foreign
     if (value === null) {
       if (KNOWN_NAMES.includes(key)) reject(key, "type");
@@ -173,7 +167,7 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
     if (compatibility) {
       const mapped = compatibility[value];
       if (!mapped) reject(key, "not_allowed");
-      for (const [name, v] of mapped ?? []) raw.set(name, { value: v, from: key });
+      for (const [name, v] of mapped) raw.set(name, { value: v, from: key });
       continue;
     }
     const canonical = (CANONICAL_PARAMS as readonly string[]).includes(key)
@@ -187,25 +181,34 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
     ignored.add(key);
   }
 
-  const take = (name: CanonicalParam) => raw.get(name);
+  const valueOf = (name: CanonicalParam) => raw.get(name)?.value;
+  /** Report a given parameter as ignored (X-Image-Ignored-Params). */
+  const dropIfGiven = (name: CanonicalParam) => {
+    const given = raw.get(name);
+    if (given) ignored.add(given.from);
+  };
+  const optionalInteger = (name: CanonicalParam, min: number, max: number) => {
+    const value = valueOf(name);
+    return value === undefined ? undefined : integer(name, value, min, max);
+  };
 
   // 6-7. COERCE, VALIDATE.
-  const w = take("w") && integer("w", take("w")?.value ?? "", 1, TRANSFORM_MAX_DIMENSION_PX);
-  const h = take("h") && integer("h", take("h")?.value ?? "", 1, TRANSFORM_MAX_DIMENSION_PX);
+  const w = optionalInteger("w", 1, TRANSFORM_MAX_DIMENSION_PX);
+  const h = optionalInteger("h", 1, TRANSFORM_MAX_DIMENSION_PX);
 
   let ar: [number, number] | undefined;
-  const arRaw = take("ar")?.value;
+  const arRaw = valueOf("ar");
   if (arRaw !== undefined) {
     const m = /^(\d{1,4}):(\d{1,4})$/.exec(arRaw);
     if (!m) reject("ar", "type");
-    const aw = Number(m?.[1]);
-    const ah = Number(m?.[2]);
+    const aw = Number(m[1]);
+    const ah = Number(m[2]);
     if (aw < 1 || ah < 1 || aw > AR_PART_MAX || ah > AR_PART_MAX) reject("ar", "out_of_range");
     ar = [aw, ah];
   }
 
   let dpr: number | undefined;
-  const dprRaw = take("dpr")?.value;
+  const dprRaw = valueOf("dpr");
   if (dprRaw !== undefined) {
     if (!/^\d(\.\d)?$/.test(dprRaw)) reject("dpr", "type");
     dpr = Number(dprRaw);
@@ -213,7 +216,7 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
   }
 
   let fit: Fit | undefined;
-  const fitRaw = take("fit")?.value;
+  const fitRaw = valueOf("fit");
   if (fitRaw !== undefined) {
     const value = FIT_VALUE_ALIASES[fitRaw] ?? fitRaw;
     if (!(FIT_VALUES as readonly string[]).includes(value)) reject("fit", "not_allowed");
@@ -222,46 +225,41 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
 
   let gravity: string | undefined;
   let gravityMode: "auto" | "face" | undefined;
-  const gRaw = take("g")?.value;
+  const gRaw = valueOf("g");
   if (gRaw !== undefined) {
     const point = /^(0(?:\.\d{1,4})?|1(?:\.0{1,4})?),(0(?:\.\d{1,4})?|1(?:\.0{1,4})?)$/.exec(gRaw);
     if (point) gravity = `${formatDecimal(Number(point[1]))},${formatDecimal(Number(point[2]))}`;
-    else if (gRaw === "auto" || gRaw === "face" || gRaw === "faces")
-      gravityMode = gRaw === "auto" ? "auto" : "face";
+    else if (gRaw === "auto") gravityMode = "auto";
+    else if (gRaw === "face" || gRaw === "faces") gravityMode = "face";
     else if ((GRAVITY_KEYWORDS as readonly string[]).includes(gRaw)) gravity = gRaw;
     else if (/^[\d.,]+$/.test(gRaw)) reject("g", "out_of_range");
     else reject("g", "not_allowed");
   }
 
   let rect: Rect | undefined;
-  const rectRaw = take("rect")?.value;
+  const rectRaw = valueOf("rect");
   if (rectRaw !== undefined) {
     const m = /^(\d{1,5}),(\d{1,5}),(\d{1,5}),(\d{1,5})$/.exec(rectRaw);
     if (!m) reject("rect", "type");
-    const [x, y, rw, rh] = [m?.[1], m?.[2], m?.[3], m?.[4]].map(Number) as [
-      number,
-      number,
-      number,
-      number,
-    ];
+    const [x, y, rw, rh] = [m[1], m[2], m[3], m[4]].map(Number) as [number, number, number, number];
     if (rw < 1 || rh < 1) reject("rect", "out_of_range");
     if (x + rw > ctx.source.width || y + rh > ctx.source.height) reject("rect", "out_of_bounds");
     rect = { x, y, w: rw, h: rh };
   }
 
   let format: OutputFormat | "auto" = "auto";
-  const fRaw = take("f")?.value;
+  const fRaw = valueOf("f");
   if (fRaw !== undefined) {
     if (!["auto", "avif", "webp", "jpeg", "png"].includes(fRaw)) reject("f", "not_allowed");
     format = fRaw as OutputFormat | "auto";
   }
 
-  let quality: number | "auto" = "auto";
-  const qRaw = take("q")?.value;
-  if (qRaw !== undefined) quality = qRaw === "auto" ? "auto" : integer("q", qRaw, 1, 100);
+  const qRaw = valueOf("q");
+  const quality: number | "auto" =
+    qRaw === undefined || qRaw === "auto" ? "auto" : integer("q", qRaw, 1, 100);
 
   let bg: string | undefined;
-  const bgRaw = take("bg")?.value;
+  const bgRaw = valueOf("bg");
   if (bgRaw !== undefined) {
     const named = CSS_NAMED_COLORS[bgRaw.toLowerCase()];
     if (named) bg = named;
@@ -269,22 +267,18 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
     else reject("bg", "type");
   }
 
-  const blur = take("blur") ? integer("blur", take("blur")?.value ?? "", 0, EFFECT_MAX) : 0;
-  const sharpen = take("sharpen")
-    ? integer("sharpen", take("sharpen")?.value ?? "", 0, EFFECT_MAX)
-    : 0;
+  const blur = optionalInteger("blur", 0, EFFECT_MAX) ?? 0;
+  const sharpen = optionalInteger("sharpen", 0, EFFECT_MAX) ?? 0;
 
-  let rot: number | "auto" = "auto";
-  const rotRaw = take("rot")?.value;
-  if (rotRaw !== undefined) {
-    if (!["0", "90", "180", "270", "auto"].includes(rotRaw)) reject("rot", "not_allowed");
-    rot = rotRaw === "auto" ? "auto" : Number(rotRaw);
+  const rotRaw = valueOf("rot");
+  if (rotRaw !== undefined && !["0", "90", "180", "270", "auto"].includes(rotRaw)) {
+    reject("rot", "not_allowed");
   }
 
-  const flipRaw = take("flip")?.value;
+  const flipRaw = valueOf("flip");
   if (flipRaw !== undefined && !["h", "v", "hv"].includes(flipRaw)) reject("flip", "not_allowed");
 
-  const dlRaw = take("dl")?.value;
+  const dlRaw = valueOf("dl");
   if (dlRaw !== undefined) {
     if (dlRaw.length < 1 || dlRaw.length > DOWNLOAD_NAME_MAX) reject("dl", "out_of_range");
     // A newline or control character in a header value is header injection.
@@ -295,19 +289,22 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
   let width = w;
   let height = h;
   if (ar) {
-    if (width !== undefined && height !== undefined) overSpecified("ar");
     if (width === undefined && height === undefined) overSpecified("ar");
-    if (width !== undefined) height = Math.max(1, Math.round((width * ar[1]) / ar[0]));
-    else if (height !== undefined) width = Math.max(1, Math.round((height * ar[0]) / ar[1]));
-    if ((width ?? 0) > TRANSFORM_MAX_DIMENSION_PX || (height ?? 0) > TRANSFORM_MAX_DIMENSION_PX) {
+    if (width !== undefined && height !== undefined) overSpecified("ar");
+    const derived =
+      width !== undefined
+        ? { w: width, h: Math.max(1, Math.round((width * ar[1]) / ar[0])) }
+        : {
+            w: Math.max(1, Math.round(((height as number) * ar[0]) / ar[1])),
+            h: height as number,
+          };
+    if (derived.w > TRANSFORM_MAX_DIMENSION_PX || derived.h > TRANSFORM_MAX_DIMENSION_PX) {
       reject("ar", "out_of_range");
     }
+    width = derived.w;
+    height = derived.h;
   }
   const resizing = width !== undefined || height !== undefined;
-  const dropIfGiven = (name: CanonicalParam) => {
-    const given = take(name);
-    if (given) ignored.add(given.from);
-  };
   if (!resizing) {
     // No resize: dpr, fit and gravity have nothing to act on.
     dropIfGiven("dpr");
@@ -317,14 +314,10 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
 
   // 9-10. RESOLVE and DEFAULT.
   const resolvedFormat: OutputFormat = format === "auto" ? ctx.acceptBucket : format;
-  const params: Record<string, string> = {};
-  params["f"] = resolvedFormat;
+  const params: Record<string, string> = { f: resolvedFormat };
 
-  if (resolvedFormat === "png") {
-    if (take("q")) ignored.add(take("q")?.from ?? "q");
-  } else {
-    params["q"] = String(quality === "auto" ? QUALITY_TABLE[resolvedFormat] : quality);
-  }
+  if (resolvedFormat === "png") dropIfGiven("q");
+  else params["q"] = String(quality === "auto" ? QUALITY_TABLE[resolvedFormat] : quality);
 
   const effectiveFit: Fit = fit ?? "scale-down";
   if (resizing) {
@@ -340,59 +333,57 @@ export const canonicalize = (query: string, ctx: CanonicalizeContext): Canonical
       } else {
         params["g"] = gravity ?? "center";
       }
-    } else if (take("g")) {
-      ignored.add(take("g")?.from ?? "g");
+    } else {
+      dropIfGiven("g");
     }
   }
 
-  const resolvedRot = rot === "auto" ? ctx.source.orientation : rot;
+  const resolvedRot =
+    rotRaw === undefined || rotRaw === "auto" ? ctx.source.orientation : Number(rotRaw);
   if (resolvedRot !== 0) params["rot"] = String(resolvedRot);
-  else if (rotRaw !== undefined && rotRaw !== "auto") ignored.add(take("rot")?.from ?? "rot");
+  else if (rotRaw === "0") dropIfGiven("rot");
 
   if (blur > 0) params["blur"] = String(blur);
-  else if (take("blur")) ignored.add(take("blur")?.from ?? "blur");
+  else dropIfGiven("blur");
   if (sharpen > 0) params["sharpen"] = String(sharpen);
-  else if (take("sharpen")) ignored.add(take("sharpen")?.from ?? "sharpen");
+  else dropIfGiven("sharpen");
   if (flipRaw !== undefined) params["flip"] = flipRaw;
   if (rect) params["rect"] = `${rect.x},${rect.y},${rect.w},${rect.h}`;
 
   // bg: padding (fit=contain) or flattening onto an opaque format.
   const padding = resizing && effectiveFit === "contain";
-  const flattening = resolvedFormat === "jpeg";
   if (padding) params["bg"] = bg ?? (resolvedFormat === "jpeg" ? "FFFFFF" : "00000000");
-  else if (bg !== undefined && flattening) params["bg"] = bg.slice(0, 6);
-  else if (bg !== undefined) ignored.add(take("bg")?.from ?? "bg");
+  else if (bg !== undefined && resolvedFormat === "jpeg") params["bg"] = bg.slice(0, 6);
+  else dropIfGiven("bg");
 
   // 11. SNAP (ADR-014): up to the nearest rung; above the top rung, unchanged.
-  const snap = (n: number) => DIMENSION_LADDER.find((rung) => rung >= n) ?? n;
-  if (ctx.dimensionLadder === true) {
-    if (width !== undefined) width = snap(width);
-    if (height !== undefined) height = snap(height);
-  }
+  const snap = (n: number | undefined) =>
+    n === undefined || ctx.dimensionLadder !== true
+      ? n
+      : (DIMENSION_LADDER.find((rung) => rung >= n) ?? n);
+  width = snap(width);
+  height = snap(height);
   if (width !== undefined) params["w"] = String(width);
   if (height !== undefined) params["h"] = String(height);
 
   // 12. CLAMP-CHECK: the effective pixel budget after dpr and snapping.
-  if (resizing) {
+  if (width !== undefined || height !== undefined) {
     const base = rect ?? { w: ctx.source.width, h: ctx.source.height };
-    const outW = width ?? Math.round(((height ?? 0) * base.w) / base.h);
-    const outH = height ?? Math.round(((width ?? 0) * base.h) / base.w);
-    const factor = (dpr ?? 1) ** 2;
-    if (outW * outH * factor > TRANSFORM_MAX_PIXELS) {
-      throw new AppError("invalid_transform_param", {
-        details: [{ field: width !== undefined ? "w" : "h", reason: "pixel_budget_exceeded" }],
-      });
+    const outW = width ?? Math.round(((height as number) * base.w) / base.h);
+    const outH = height ?? Math.round((outW * base.h) / base.w);
+    if (outW * outH * (dpr ?? 1) ** 2 > TRANSFORM_MAX_PIXELS) {
+      reject(width !== undefined ? "w" : "h", "pixel_budget_exceeded");
     }
   }
 
   // 13-14. ORDER, SERIALIZE.
-  const keys = Object.keys(params).sort();
-  const canonical = keys.map((k) => `${k}=${params[k] ?? ""}`).join("&");
-  const exp = take("exp")?.value;
-  const sig = take("sig")?.value;
+  const entries = Object.entries(params).sort(([a], [b]) => (a < b ? -1 : 1));
+  const canonical = entries.map(([k, v]) => `${k}=${v}`).join("&");
+  const exp = valueOf("exp");
+  const sig = valueOf("sig");
 
   return {
-    params: Object.fromEntries(keys.map((k) => [k, params[k] ?? ""])),
+    params: Object.fromEntries(entries),
     canonical,
     paramsHash: computeParamsHash(canonical),
     format: resolvedFormat,

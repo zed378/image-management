@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { createLogger } from "@image-delivery/logger";
+import { MemoryStorageAdapter } from "@image-delivery/storage-adapter";
 import { systemContext, type Permission } from "@image-delivery/tenancy";
 import {
   createTestDatabase,
@@ -12,6 +13,7 @@ import {
 
 import { buildApp } from "../src/app";
 import { createApiKeyService, type ApiKeyService } from "../src/modules/api-keys/api-key.service";
+import { createAssetModule } from "../src/modules/assets/asset.module";
 
 import type { FastifyInstance } from "fastify";
 
@@ -57,6 +59,7 @@ beforeAll(async () => {
     logger: createLogger({ service: "api", version: "test", level: "silent" }),
     readinessChecks: {},
     apiKeys,
+    assets: createAssetModule({ db: t.db, storage: new MemoryStorageAdapter() }),
   });
   a = await seedTenant(t.db);
   b = await seedTenant(t.db);

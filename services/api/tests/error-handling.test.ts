@@ -6,6 +6,7 @@ import { createLogger } from "@image-delivery/logger";
 
 import { buildApp } from "../src/app";
 import { stubApiKeys } from "./support/stub-api-keys";
+import { stubAssets } from "./support/stub-assets";
 
 import type { FastifyInstance } from "fastify";
 
@@ -28,6 +29,7 @@ beforeAll(async () => {
     }),
     readinessChecks: {},
     apiKeys: stubApiKeys(),
+    assets: stubAssets(),
   });
   logs = () =>
     chunks

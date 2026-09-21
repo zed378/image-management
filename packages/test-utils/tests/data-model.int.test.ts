@@ -42,6 +42,7 @@ const TABLE_SCOPES: Readonly<Record<string, "global" | "tenant" | "project">> = 
   asset_tags: "project",
   collections: "project",
   collection_assets: "project",
+  idempotency_keys: "project",
 };
 
 let t: TestDatabase;

@@ -3,6 +3,7 @@ import { seedTenant, type SeededTenant } from "@image-delivery/test-utils";
 
 import type { ApiKeyService } from "../../src/modules/api-keys/api-key.service";
 import type { Db } from "@image-delivery/db";
+import type { StorageAdapter } from "@image-delivery/storage-adapter";
 import type { FastifyInstance } from "fastify";
 
 // The tenant-isolation harness (P1-05, docs/SECURITY/11). For any route that
@@ -19,7 +20,11 @@ export type TenantFixture = SeededTenant & {
 export type IsolationDeps = {
   readonly db: Db;
   readonly apiKeys: ApiKeyService;
+  readonly storage: StorageAdapter;
 };
+
+/** A raw request body, for routes that do not take JSON (multipart uploads). */
+export type RawBody = { readonly payload: Buffer; readonly headers: Record<string, string> };
 
 export type IsolationCase = {
   /** Method and route exactly as registered, e.g. `GET /v1/applications/:application_id/api-keys`. */
@@ -27,6 +32,8 @@ export type IsolationCase = {
   /** Create the resource in `owner`'s tenant; return every path parameter of the route. */
   readonly arrange: (owner: TenantFixture, deps: IsolationDeps) => Promise<Record<string, string>>;
   readonly payload?: Record<string, unknown>;
+  /** Built per call: a multipart body cannot be reused across requests. */
+  readonly rawBody?: () => Promise<RawBody>;
 };
 
 export const createTenantFixture = async (deps: IsolationDeps): Promise<TenantFixture> => {
@@ -66,13 +73,19 @@ export const runIsolationCase = async (
 ): Promise<IsolationOutcome> => {
   const params = await testCase.arrange(owner, deps);
   const { method, url } = toRequest(testCase.route, params);
-  const send = (key: string) =>
-    app.inject({
+  const send = async (key: string) => {
+    const raw = testCase.rawBody ? await testCase.rawBody() : undefined;
+    return app.inject({
       method,
       url,
-      headers: { authorization: `Bearer ${key}` },
-      ...(method === "GET" || method === "DELETE" ? {} : { payload: testCase.payload ?? {} }),
+      headers: { authorization: `Bearer ${key}`, ...(raw?.headers ?? {}) },
+      ...(raw
+        ? { payload: raw.payload }
+        : method === "GET" || method === "DELETE"
+          ? {}
+          : { payload: testCase.payload ?? {} }),
     });
+  };
   // Attacker first, so a mutating route is attempted against intact state.
   const attackerResponse = await send(attacker.key);
   const ownerResponse = await send(owner.key);

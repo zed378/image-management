@@ -4,9 +4,11 @@ import { newId } from "@image-delivery/schema";
 
 import { registerAuthentication } from "./http/authentication";
 import { registerErrorHandler } from "./http/error-handler";
+import { registerMultipart } from "./http/multipart";
 import { registerRequestContext } from "./http/request-context";
 import { sendError } from "./http/respond";
 import { registerApiKeyRoutes } from "./modules/api-keys/api-key.routes";
+import { registerAssetRoutes, type AssetRouteDeps } from "./modules/assets/asset.routes";
 import { registerHealthRoutes, type ReadinessCheck } from "./modules/health/health.routes";
 
 import type { FailureLimiter } from "./http/failure-limiter";
@@ -23,6 +25,8 @@ export type AppOptions = {
   /** Trust X-Forwarded-* from these proxy addresses/CIDRs (the load balancer), or all. */
   readonly trustProxy?: boolean | string | readonly string[];
   readonly apiKeys: ApiKeyService;
+  /** The asset module and what its routes need (P2-02). */
+  readonly assets: AssetRouteDeps;
   /** Failed-authentication limiter (tests inject one with a small budget). */
   readonly authFailures?: FailureLimiter;
   /** Extra /v1 routes, registered after authentication (tests). */
@@ -80,7 +84,9 @@ export const buildApp = async (options: AppOptions): Promise<FastifyInstance> =>
         authenticate: options.apiKeys.authenticate,
         ...(options.authFailures ? { failures: options.authFailures } : {}),
       });
+      await registerMultipart(v1);
       registerApiKeyRoutes(v1, options.apiKeys);
+      registerAssetRoutes(v1, options.assets);
       options.registerExtraRoutes?.(v1);
     },
     { prefix: API_VERSION_PREFIX },

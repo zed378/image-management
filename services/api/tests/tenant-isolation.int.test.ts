@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { createLogger } from "@image-delivery/logger";
+import { MemoryStorageAdapter } from "@image-delivery/storage-adapter";
 import { createTestDatabase, type TestDatabase } from "@image-delivery/test-utils";
 
 import { ISOLATION_CASES } from "./isolation/cases";
@@ -12,6 +13,7 @@ import {
 } from "./isolation/harness";
 import { buildApp } from "../src/app";
 import { createApiKeyService } from "../src/modules/api-keys/api-key.service";
+import { createAssetModule } from "../src/modules/assets/asset.module";
 
 import type { FastifyInstance } from "fastify";
 
@@ -30,11 +32,16 @@ let b: TenantFixture;
 
 beforeAll(async () => {
   t = await createTestDatabase(inject("postgresAdminUrl"));
-  deps = { db: t.db, apiKeys: createApiKeyService({ db: t.db, pepper: PEPPER }) };
+  deps = {
+    db: t.db,
+    apiKeys: createApiKeyService({ db: t.db, pepper: PEPPER }),
+    storage: new MemoryStorageAdapter(),
+  };
   app = await buildApp({
     logger: createLogger({ service: "api", version: "test", level: "silent" }),
     readinessChecks: {},
     apiKeys: deps.apiKeys,
+    assets: createAssetModule({ db: t.db, storage: deps.storage }),
   });
   a = await createTenantFixture(deps);
   b = await createTenantFixture(deps);

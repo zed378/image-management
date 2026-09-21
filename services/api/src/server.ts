@@ -18,6 +18,7 @@ import { loadApiConfig, type ApiConfig } from "./config";
 import { createCredentialLookup } from "./modules/api-keys/api-key.authentication";
 import { createApiKeyService } from "./modules/api-keys/api-key.service";
 import { createLastUsedTracker } from "./modules/api-keys/last-used-tracker";
+import { createAssetModule } from "./modules/assets/asset.module";
 import { readinessChecks } from "./readiness";
 
 const loadConfigOrExit = (): ApiConfig => {
@@ -70,6 +71,7 @@ const app = await buildApp({
   logger,
   readinessChecks: readinessChecks({ db, redis, storage }),
   apiKeys,
+  assets: createAssetModule({ db, storage }),
 });
 
 // Graceful shutdown: stop accepting, let in-flight requests finish, then

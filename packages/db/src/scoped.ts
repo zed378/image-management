@@ -70,6 +70,7 @@ export const TENANT_OWNED_TABLES = {
   asset_tags: { project: true },
   collections: { project: true },
   collection_assets: { project: true },
+  idempotency_keys: { project: true },
 } as const satisfies Partial<Record<keyof Database, { project: boolean }>>;
 
 export type TenantOwnedTable = keyof typeof TENANT_OWNED_TABLES;

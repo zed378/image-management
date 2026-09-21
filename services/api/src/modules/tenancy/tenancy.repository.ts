@@ -11,6 +11,12 @@ export type ApplicationRef = {
   readonly status: "active" | "suspended";
 };
 
+export type ProjectRef = {
+  readonly id: string;
+  readonly applicationId: string;
+  readonly status: "active" | "archived";
+};
+
 export const createTenancyRepository = (db: Executor) => {
   const findApplication = async (
     ctx: TenantContext,
@@ -44,7 +50,21 @@ export const createTenancyRepository = (db: Executor) => {
     return rows.map((r) => r.id);
   };
 
-  return { findApplication, findProjectIdsInApplication };
+  const findProject = async (
+    ctx: TenantContext,
+    projectId: string,
+    tx?: Executor,
+  ): Promise<ProjectRef | null> => {
+    const row = await scoped(tx ?? db, ctx)
+      .selectFrom("projects")
+      .select(["id", "application_id", "status"])
+      .where("id", "=", projectId)
+      .where("deleted_at", "is", null)
+      .executeTakeFirst();
+    return row ? { id: row.id, applicationId: row.application_id, status: row.status } : null;
+  };
+
+  return { findApplication, findProjectIdsInApplication, findProject };
 };
 
 export type TenancyRepository = ReturnType<typeof createTenancyRepository>;

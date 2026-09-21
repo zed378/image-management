@@ -47,7 +47,7 @@ Detail: [`10-MULTI-TENANT-SECURITY.md`](./10-MULTI-TENANT-SECURITY.md),
 | SEC-TEN-02 | MUST | Every query on a tenant-owned table SHALL be filtered by `tenant_id` through `scoped()`; an unscoped query is permitted only through the audited `unsafeUnscoped` escape hatch in admin/maintenance code. | lint + test | P1-05, P0-11 |
 | SEC-TEN-03 | MUST | A request for a resource owned by another tenant SHALL return `404` with the same code, message and shape as a genuinely absent resource. | test (per `:id` route) | P1-06 |
 | SEC-TEN-04 | MUST | Every child row SHALL reference its parent by the composite `(parent_id, tenant_id)` foreign key, so the database refuses a cross-tenant link. | test | Done (P0-06), extended P1-01 |
-| SEC-TEN-05 | MUST | Every cache key and every storage object key for tenant data SHALL contain the tenant id. | test | P2-01, P4-02 |
+| SEC-TEN-05 | MUST | Every cache key and every storage object key for tenant data SHALL contain the tenant id. | test | Object keys done (P2-01); cache keys P4-02 |
 | SEC-TEN-06 | MUST | An `INSERT` SHALL take its tenant and project from the request context and ignore any such value in the payload. | test | P1-05 |
 
 ## 2. Authentication and credentials
@@ -96,12 +96,12 @@ Detail: [`13-UPLOAD-SECURITY.md`](./13-UPLOAD-SECURITY.md),
 
 | ID | Level | Requirement | Enforced by | Status |
 |---|---|---|---|---|
-| SEC-UPL-01 | MUST | An upload's type SHALL be determined from its content (magic bytes confirmed by the decoder), never from its extension or declared MIME type. | test (fixtures) | P2-02, P5-04 |
-| SEC-UPL-02 | MUST | Byte size, pixel dimensions and total pixel count SHALL be bounded before full decode; `sharp` limits SHALL be set explicitly. | test (bomb fixture) | P2-02, P3-01 |
-| SEC-UPL-03 | MUST | Attacker-supplied SVG SHALL NOT be rasterized in-process nor served inline from the delivery origin. | test | P2-02, P5-04 |
+| SEC-UPL-01 | MUST | An upload's type SHALL be determined from its content (magic bytes confirmed by the decoder), never from its extension or declared MIME type. | test (fixtures) | Done (P2-02) |
+| SEC-UPL-02 | MUST | Byte size, pixel dimensions and total pixel count SHALL be bounded before full decode; `sharp` limits SHALL be set explicitly. | test (bomb fixture) | Header limits done (P2-02); decode limits P3-01 |
+| SEC-UPL-03 | MUST | Attacker-supplied SVG SHALL NOT be rasterized in-process nor served inline from the delivery origin. | test | Done (P2-02: SVG refused) |
 | SEC-UPL-04 | MUST | Metadata (EXIF/XMP/IPTC, incl. GPS) SHALL be stripped from derivatives by default, after orientation is applied. | test | P3-06 |
 | SEC-UPL-05 | MUST | Decoding and encoding SHALL run in the worker under a timeout and memory ceiling. | test | P3-09 |
-| SEC-UPL-06 | MUST | A client-supplied filename SHALL never become a path, an object key, or an unencoded header value. | test | P2-01 |
+| SEC-UPL-06 | MUST | A client-supplied filename SHALL never become a path, an object key, or an unencoded header value. | test | Done (P2-01, P2-02) |
 | SEC-UPL-07 | MUST | Any fetch of a URL on a caller's behalf SHALL pass an SSRF guard (deny private, link-local and metadata addresses, re-resolve after redirect, bounded redirects, size and time). | test | P2-04 |
 
 ## 6. Responses and delivery

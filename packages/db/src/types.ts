@@ -358,6 +358,18 @@ export interface UsageEventLedgerTable {
   applied_at: Timestamp;
 }
 
+export interface IdempotencyKeysTable {
+  tenant_id: string;
+  project_id: string;
+  key: string;
+  request_hash: string;
+  status: Defaulted<"in_progress" | "completed">;
+  response_status: Optional<number>;
+  response_body: ColumnType<unknown, unknown, unknown>;
+  created_at: Timestamp;
+  expires_at: Date | string;
+}
+
 export interface Database {
   tenants: TenantsTable;
   users: UsersTable;
@@ -382,6 +394,7 @@ export interface Database {
   quota_overrides: QuotaOverridesTable;
   audit_logs: AuditLogsTable;
   usage_event_ledger: UsageEventLedgerTable;
+  idempotency_keys: IdempotencyKeysTable;
 }
 
 // Re-exported so repositories need not import kysely for these helpers.

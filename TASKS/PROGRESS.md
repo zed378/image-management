@@ -47,7 +47,7 @@ Detail: [`TASKS/PHASE-2-ASSET-STORAGE.md`](./PHASE-2-ASSET-STORAGE.md)
 | Task | Title | Status | Branch | PR | MEMORY record |
 |---|---|---|---|---|---|
 | P2-01 | Object naming & bucket layout | Done | `feat/P2-01-object-naming` | squash | [record](../MEMORY/records/P2-01.md) |
-| P2-02 | Asset upload -- direct multipart | Not started | - | - | - |
+| P2-02 | Asset upload -- direct multipart | Done | `feat/P2-02-direct-upload` | squash | [record](../MEMORY/records/P2-02.md) |
 | P2-03 | Asset upload -- presigned direct-to-storage | Not started | - | - | - |
 | P2-04 | Upload from remote URL | Not started | - | - | - |
 | P2-05 | Asset versioning | Not started | - | - | - |

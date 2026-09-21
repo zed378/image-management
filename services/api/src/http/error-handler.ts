@@ -52,6 +52,13 @@ const FASTIFY_CODES: Readonly<Record<string, ConstructorParameters<typeof AppErr
   FST_ERR_CTP_INVALID_CONTENT_LENGTH: "validation_failed",
   FST_ERR_CTP_EMPTY_JSON_BODY: "malformed_json",
   FST_ERR_CTP_INVALID_JSON_BODY: "malformed_json",
+  // @fastify/multipart (P2-02)
+  FST_REQ_FILE_TOO_LARGE: "upload_too_large",
+  FST_FILES_LIMIT: "validation_failed",
+  FST_FIELDS_LIMIT: "validation_failed",
+  FST_PARTS_LIMIT: "validation_failed",
+  FST_PROTO_VIOLATION: "validation_failed",
+  FST_INVALID_MULTIPART_CONTENT_TYPE: "unsupported_media_type",
 };
 
 export const toAppError = (err: unknown): AppError => {

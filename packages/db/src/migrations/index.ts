@@ -4,6 +4,7 @@ import * as m20260921T1510 from "./20260921T1510_create_access_tables";
 import * as m20260921T1520 from "./20260921T1520_create_platform_tables";
 import * as m20260921T1600 from "./20260921T1600_create_app_role";
 import * as m20260921T1610 from "./20260921T1610_create_usage_event_ledger";
+import * as m20260921T1700 from "./20260921T1700_create_idempotency_keys";
 
 import type { Migration } from "kysely/migration";
 
@@ -21,4 +22,5 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "20260921T1520_create_platform_tables": m20260921T1520,
   "20260921T1600_create_app_role": m20260921T1600,
   "20260921T1610_create_usage_event_ledger": m20260921T1610,
+  "20260921T1700_create_idempotency_keys": m20260921T1700,
 };

@@ -74,13 +74,52 @@ Only the owner's repository reads or writes it.
 | `quota_overrides` | `usage` | tenant | `P1-01` |
 | `webhooks`, `webhook_deliveries` | `webhooks` | tenant | `P1-01` |
 | `audit_logs` | `audit` | tenant | `P1-01` |
-| `idempotency_keys` | `idempotency` | project | `P2-02` |
+| `idempotency_keys` | `idempotency` | project | `P2-02` (created) |
 
 "global" tables (`tenants`, `quotas`) are explicitly documented as such; every
 other table traces to a tenant. The migration lint
 (`packages/test-utils/tests/data-model.int.test.ts`) holds the same
 classification and fails on any table it does not know, so a new table
 cannot skip this decision.
+
+## Supporting tables
+
+Tables that serve a mechanism rather than a domain concept, documented here
+rather than in a document of their own.
+
+<!-- schema:idempotency_keys -->
+Table `idempotency_keys` (generated from the migrated schema):
+
+| Column | Type | Null | Default |
+|---|---|---|---|
+| `tenant_id` | `character(26)` | no |  |
+| `project_id` | `character(26)` | no |  |
+| `key` | `text` | no |  |
+| `request_hash` | `character(64)` | no |  |
+| `status` | `text` | no | `'in_progress'::text` |
+| `response_status` | `smallint` | yes |  |
+| `response_body` | `jsonb` | yes |  |
+| `created_at` | `timestamp with time zone` | no | `now()` |
+| `expires_at` | `timestamp with time zone` | no |  |
+
+Constraints:
+
+- `idempotency_keys_completed_ck`: `CHECK (((status <> 'completed'::text) OR ((response_status IS NOT NULL) AND (response_body IS NOT NULL))))`
+- `idempotency_keys_key_check`: `CHECK ((((length(key) >= 1) AND (length(key) <= 255)) AND (key !~ '[[:cntrl:]]'::text)))`
+- `idempotency_keys_request_hash_check`: `CHECK ((request_hash ~ '^[0-9a-f]{64}$'::text))`
+- `idempotency_keys_response_status_check`: `CHECK (((response_status >= 200) AND (response_status <= 599)))`
+- `idempotency_keys_status_check`: `CHECK ((status = ANY (ARRAY['in_progress'::text, 'completed'::text])))`
+- `idempotency_keys_project_fk`: `FOREIGN KEY (project_id, tenant_id) REFERENCES projects(id, tenant_id) ON DELETE CASCADE`
+- `idempotency_keys_pkey`: `PRIMARY KEY (tenant_id, project_id, key)`
+
+Indexes:
+
+- `idempotency_keys_expires_idx`: `(expires_at)`
+- `idempotency_keys_project_idx`: `(project_id, tenant_id)`
+<!-- /schema:idempotency_keys -->
+
+`idempotency_keys` stores the outcome of a create made with an
+`Idempotency-Key` for 24 hours (`docs/API/08`).
 
 ## Keeping the documents exact
 

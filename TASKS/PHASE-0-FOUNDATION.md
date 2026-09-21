@@ -154,29 +154,34 @@ whole tree or a single package.
 
 ---
 
-### P0-07: Storage abstraction interface + local adapter
+### P0-07: Storage abstraction interface + provider adapters
 
 - **Depends on:** P0-02
 - **Implements:** `docs/STORAGE/00-STORAGE-ARCHITECTURE.md`, `docs/STORAGE/01-STORAGE-ABSTRACTION.md`, `docs/STORAGE/10-STORAGE-PROVIDER-ADAPTER.md`
 
+Scope widened on 2026-09-21 at the product owner's request (`ADR-021`,
+superseding `ADR-002`): local disk is the default provider, and network
+filesystems, object storage, and other network-reachable storage are
+first-class alternatives.
+
 **Steps**
 1. Define the `StorageAdapter` interface in `packages/storage-adapter`:
-   `put(key, stream, opts)`, `get(key)`, `delete(key)`, `exists(key)`,
-   `presignPut(key, opts)`, `presignGet(key, opts)`, `list(prefix)`.
-2. Implement an S3-compatible adapter (works against both MinIO locally and
-   AWS S3 / Cloudflare R2 in other environments, since they share the S3
-   API) -- this single implementation covers three of the providers listed
-   in `docs/STORAGE/10-STORAGE-PROVIDER-ADAPTER.md` for v1.
-3. Write a shared adapter conformance test suite that any future adapter
-   (GCS, Azure Blob) must pass, so "supported provider" has a concrete,
-   automatable definition.
-4. Run the conformance suite against the local MinIO adapter in CI.
+   `put`, `get`, `stat`, `exists`, `delete`, `copy`, `list`, `presignPut`,
+   `presignGet`, `close`, plus a declared `capabilities` object.
+2. Implement adapters: `local` (default; also NFS/SMB/EFS mounts), `s3`
+   (every S3-compatible store), `azure-blob`, `sftp`, `webdav`, and an
+   in-memory adapter for tests.
+3. Implement platform-proxied presigned URLs (`withProxyPresign`) so direct
+   upload works on providers that cannot sign their own URLs.
+4. Write a shared conformance suite that every adapter must pass unmodified,
+   and run it against a real server for each provider in CI.
 
 **Definition of Done**
-- [ ] No package outside `packages/storage-adapter` imports an S3 SDK
-      directly (enforce with a lint/import-boundary rule).
-- [ ] `docs/STORAGE/01-STORAGE-ABSTRACTION.md` documents the interface
+- [x] No package outside `packages/storage-adapter` imports a storage
+      provider SDK (lint rule lands in `P0-11`).
+- [x] `docs/STORAGE/01-STORAGE-ABSTRACTION.md` documents the interface
       signature verbatim, kept in sync with the code.
+- [x] Every adapter passes the conformance suite against a real server.
 
 ---
 

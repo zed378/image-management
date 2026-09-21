@@ -34,10 +34,17 @@ export const redisFragment = {
   REDIS_URL: z.string().regex(/^rediss?:\/\//, "must be a redis:// or rediss:// URL"),
 };
 
-export const STORAGE_PROVIDERS = ["s3", "local"] as const;
+/** ADR-021: local disk is the default; network filesystems (NFS, SMB, EFS) mount as `local`. */
+export const STORAGE_PROVIDERS = ["local", "s3", "azure-blob", "sftp", "webdav"] as const;
+export type StorageProviderName = (typeof STORAGE_PROVIDERS)[number];
+
+/** Development default for STORAGE_LOCAL_ROOT; production must set it explicitly. */
+export const DEFAULT_DEV_STORAGE_ROOT = ".data/storage";
 
 export const storageFragment = {
-  STORAGE_PROVIDER: z.enum(STORAGE_PROVIDERS),
+  STORAGE_PROVIDER: z.enum(STORAGE_PROVIDERS).default("local"),
+  /** local: a directory on a local disk or a mounted network filesystem. */
+  STORAGE_LOCAL_ROOT: z.string().min(1).optional(),
   /** Omit for AWS S3's default endpoint; set for R2, MinIO, or any S3-compatible store. */
   STORAGE_S3_ENDPOINT: z.url().optional(),
   STORAGE_S3_REGION: z.string().min(1).max(64).default("us-east-1"),
@@ -46,35 +53,97 @@ export const storageFragment = {
   STORAGE_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
   STORAGE_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   STORAGE_S3_FORCE_PATH_STYLE: booleanString.default(false),
-  STORAGE_LOCAL_ROOT: z.string().min(1).optional(),
+  // azure-blob
+  STORAGE_AZURE_ACCOUNT_NAME: z.string().min(3).max(24).optional(),
+  STORAGE_AZURE_ACCOUNT_KEY: z.string().min(1).optional(),
+  STORAGE_AZURE_CONTAINER: z.string().min(3).max(63).optional(),
+  /** Omit for the public cloud; set for Azurite or a sovereign cloud. */
+  STORAGE_AZURE_ENDPOINT: z.url().optional(),
+  // sftp
+  STORAGE_SFTP_HOST: z.string().min(1).optional(),
+  STORAGE_SFTP_PORT: intInRange(1, 65_535).default(22),
+  STORAGE_SFTP_USERNAME: z.string().min(1).optional(),
+  STORAGE_SFTP_PASSWORD: z.string().min(1).optional(),
+  /** PEM private key; a literal backslash-n sequence is accepted as a newline. */
+  STORAGE_SFTP_PRIVATE_KEY: z.string().min(1).optional(),
+  STORAGE_SFTP_ROOT: z.string().min(1).default("/"),
+  /** Base64 SHA-256 host key fingerprint; required in production (MITM defence). */
+  STORAGE_SFTP_HOST_KEY_SHA256: z.string().min(1).optional(),
+  // webdav
+  STORAGE_WEBDAV_URL: z.url().optional(),
+  STORAGE_WEBDAV_USERNAME: z.string().min(1).optional(),
+  STORAGE_WEBDAV_PASSWORD: z.string().min(1).optional(),
+  STORAGE_WEBDAV_ROOT: z.string().min(1).default("/"),
 };
 
 type StorageEnv = {
-  STORAGE_PROVIDER: (typeof STORAGE_PROVIDERS)[number];
+  NODE_ENV?: string | undefined;
+  STORAGE_PROVIDER: StorageProviderName;
+  STORAGE_LOCAL_ROOT?: string | undefined;
+  STORAGE_S3_REGION?: string | undefined;
+  STORAGE_S3_ENDPOINT?: string | undefined;
   STORAGE_S3_BUCKET?: string | undefined;
   STORAGE_S3_ACCESS_KEY_ID?: string | undefined;
   STORAGE_S3_SECRET_ACCESS_KEY?: string | undefined;
-  STORAGE_LOCAL_ROOT?: string | undefined;
+  STORAGE_S3_FORCE_PATH_STYLE?: boolean | undefined;
+  STORAGE_AZURE_ACCOUNT_NAME?: string | undefined;
+  STORAGE_AZURE_ACCOUNT_KEY?: string | undefined;
+  STORAGE_AZURE_CONTAINER?: string | undefined;
+  STORAGE_AZURE_ENDPOINT?: string | undefined;
+  STORAGE_SFTP_HOST?: string | undefined;
+  STORAGE_SFTP_PORT?: number | undefined;
+  STORAGE_SFTP_USERNAME?: string | undefined;
+  STORAGE_SFTP_PASSWORD?: string | undefined;
+  STORAGE_SFTP_PRIVATE_KEY?: string | undefined;
+  STORAGE_SFTP_ROOT?: string | undefined;
+  STORAGE_SFTP_HOST_KEY_SHA256?: string | undefined;
+  STORAGE_WEBDAV_URL?: string | undefined;
+  STORAGE_WEBDAV_USERNAME?: string | undefined;
+  STORAGE_WEBDAV_PASSWORD?: string | undefined;
+  STORAGE_WEBDAV_ROOT?: string | undefined;
 };
 
 /** Cross-field rules the flat fragment cannot express on its own. */
 export const refineStorage = (env: StorageEnv, ctx: z.RefinementCtx): void => {
-  if (env.STORAGE_PROVIDER === "s3" && !env.STORAGE_S3_BUCKET) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["STORAGE_S3_BUCKET"],
-      message: "is required when STORAGE_PROVIDER=s3",
-    });
+  const requireVar = (variable: keyof StorageEnv, when: string): void => {
+    if (!env[variable]) ctx.addIssue({ code: "custom", path: [variable], message: `is required when ${when}` });
+  };
+  const production = env.NODE_ENV === "production";
+
+  switch (env.STORAGE_PROVIDER) {
+    case "local":
+      // A container writing to its own ephemeral filesystem loses every
+      // original on restart. Production must name the (persistent, and for
+      // more than one host, shared) directory explicitly.
+      if (production) requireVar("STORAGE_LOCAL_ROOT", "STORAGE_PROVIDER=local and NODE_ENV=production");
+      break;
+    case "s3":
+      requireVar("STORAGE_S3_BUCKET", "STORAGE_PROVIDER=s3");
+      break;
+    case "azure-blob":
+      requireVar("STORAGE_AZURE_ACCOUNT_NAME", "STORAGE_PROVIDER=azure-blob");
+      requireVar("STORAGE_AZURE_ACCOUNT_KEY", "STORAGE_PROVIDER=azure-blob");
+      requireVar("STORAGE_AZURE_CONTAINER", "STORAGE_PROVIDER=azure-blob");
+      break;
+    case "sftp":
+      requireVar("STORAGE_SFTP_HOST", "STORAGE_PROVIDER=sftp");
+      requireVar("STORAGE_SFTP_USERNAME", "STORAGE_PROVIDER=sftp");
+      if (!env.STORAGE_SFTP_PASSWORD && !env.STORAGE_SFTP_PRIVATE_KEY) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["STORAGE_SFTP_PASSWORD"],
+          message: "or STORAGE_SFTP_PRIVATE_KEY is required when STORAGE_PROVIDER=sftp",
+        });
+      }
+      if (production) requireVar("STORAGE_SFTP_HOST_KEY_SHA256", "STORAGE_PROVIDER=sftp and NODE_ENV=production");
+      break;
+    case "webdav":
+      requireVar("STORAGE_WEBDAV_URL", "STORAGE_PROVIDER=webdav");
+      break;
   }
-  if (env.STORAGE_PROVIDER === "local" && !env.STORAGE_LOCAL_ROOT) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["STORAGE_LOCAL_ROOT"],
-      message: "is required when STORAGE_PROVIDER=local",
-    });
-  }
-  // A half-configured static credential is always a mistake: either both
-  // halves (static keys) or neither (IAM role).
+
+  // A half-configured static S3 credential is always a mistake: both halves
+  // (static keys) or neither (IAM role).
   if (Boolean(env.STORAGE_S3_ACCESS_KEY_ID) !== Boolean(env.STORAGE_S3_SECRET_ACCESS_KEY)) {
     ctx.addIssue({
       code: "custom",
@@ -103,6 +172,7 @@ export type RedisConfig = {
 };
 
 export type StorageConfig =
+  | { readonly provider: "local"; readonly root: string }
   | {
       readonly provider: "s3";
       readonly bucket: string;
@@ -112,7 +182,27 @@ export type StorageConfig =
       readonly credentials: { readonly accessKeyId: string; readonly secretAccessKey: string } | undefined;
     }
   | {
-      readonly provider: "local";
+      readonly provider: "azure-blob";
+      readonly accountName: string;
+      readonly accountKey: string;
+      readonly container: string;
+      readonly endpoint: string | undefined;
+    }
+  | {
+      readonly provider: "sftp";
+      readonly host: string;
+      readonly port: number;
+      readonly username: string;
+      readonly password: string | undefined;
+      readonly privateKey: string | undefined;
+      readonly root: string;
+      readonly hostKeySha256: string | undefined;
+    }
+  | {
+      readonly provider: "webdav";
+      readonly url: string;
+      readonly username: string | undefined;
+      readonly password: string | undefined;
       readonly root: string;
     };
 
@@ -138,29 +228,50 @@ export const toDatabaseConfig = (env: {
 
 export const toRedisConfig = (env: { REDIS_URL: string }): RedisConfig => ({ url: env.REDIS_URL });
 
-export const toStorageConfig = (env: {
-  STORAGE_PROVIDER: (typeof STORAGE_PROVIDERS)[number];
-  STORAGE_S3_ENDPOINT?: string | undefined;
-  STORAGE_S3_REGION: string;
-  STORAGE_S3_BUCKET?: string | undefined;
-  STORAGE_S3_ACCESS_KEY_ID?: string | undefined;
-  STORAGE_S3_SECRET_ACCESS_KEY?: string | undefined;
-  STORAGE_S3_FORCE_PATH_STYLE: boolean;
-  STORAGE_LOCAL_ROOT?: string | undefined;
-}): StorageConfig => {
-  if (env.STORAGE_PROVIDER === "local") {
-    // refineStorage guarantees presence; the fallback is unreachable.
-    return { provider: "local", root: env.STORAGE_LOCAL_ROOT ?? "" };
+// refineStorage has already guaranteed every required value for the chosen
+// provider; the `?? ""` fallbacks below are unreachable by construction.
+export const toStorageConfig = (env: StorageEnv): StorageConfig => {
+  switch (env.STORAGE_PROVIDER) {
+    case "local":
+      return { provider: "local", root: env.STORAGE_LOCAL_ROOT ?? DEFAULT_DEV_STORAGE_ROOT };
+    case "s3":
+      return {
+        provider: "s3",
+        bucket: env.STORAGE_S3_BUCKET ?? "",
+        region: env.STORAGE_S3_REGION ?? "us-east-1",
+        endpoint: env.STORAGE_S3_ENDPOINT,
+        forcePathStyle: env.STORAGE_S3_FORCE_PATH_STYLE ?? false,
+        credentials:
+          env.STORAGE_S3_ACCESS_KEY_ID && env.STORAGE_S3_SECRET_ACCESS_KEY
+            ? { accessKeyId: env.STORAGE_S3_ACCESS_KEY_ID, secretAccessKey: env.STORAGE_S3_SECRET_ACCESS_KEY }
+            : undefined,
+      };
+    case "azure-blob":
+      return {
+        provider: "azure-blob",
+        accountName: env.STORAGE_AZURE_ACCOUNT_NAME ?? "",
+        accountKey: env.STORAGE_AZURE_ACCOUNT_KEY ?? "",
+        container: env.STORAGE_AZURE_CONTAINER ?? "",
+        endpoint: env.STORAGE_AZURE_ENDPOINT,
+      };
+    case "sftp":
+      return {
+        provider: "sftp",
+        host: env.STORAGE_SFTP_HOST ?? "",
+        port: env.STORAGE_SFTP_PORT ?? 22,
+        username: env.STORAGE_SFTP_USERNAME ?? "",
+        password: env.STORAGE_SFTP_PASSWORD,
+        privateKey: env.STORAGE_SFTP_PRIVATE_KEY?.split(String.raw`\n`).join("\n"),
+        root: env.STORAGE_SFTP_ROOT ?? "/",
+        hostKeySha256: env.STORAGE_SFTP_HOST_KEY_SHA256,
+      };
+    case "webdav":
+      return {
+        provider: "webdav",
+        url: env.STORAGE_WEBDAV_URL ?? "",
+        username: env.STORAGE_WEBDAV_USERNAME,
+        password: env.STORAGE_WEBDAV_PASSWORD,
+        root: env.STORAGE_WEBDAV_ROOT ?? "/",
+      };
   }
-  return {
-    provider: "s3",
-    bucket: env.STORAGE_S3_BUCKET ?? "",
-    region: env.STORAGE_S3_REGION,
-    endpoint: env.STORAGE_S3_ENDPOINT,
-    forcePathStyle: env.STORAGE_S3_FORCE_PATH_STYLE,
-    credentials:
-      env.STORAGE_S3_ACCESS_KEY_ID && env.STORAGE_S3_SECRET_ACCESS_KEY
-        ? { accessKeyId: env.STORAGE_S3_ACCESS_KEY_ID, secretAccessKey: env.STORAGE_S3_SECRET_ACCESS_KEY }
-        : undefined,
-  };
 };

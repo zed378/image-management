@@ -49,7 +49,7 @@ describe("parseConfig", () => {
     expect(config.STORAGE_S3_FORCE_PATH_STYLE).toBe(false);
   });
 
-  it.each(["DATABASE_URL", "REDIS_URL", "STORAGE_PROVIDER"] as const)(
+  it.each(["DATABASE_URL", "REDIS_URL"] as const)(
     "fails naming %s when it is missing",
     (variable) => {
       const env: Record<string, string> = { ...validEnv };
@@ -66,7 +66,7 @@ describe("parseConfig", () => {
     const error = configErrorOf(() => parseConfig(schema, {}));
 
     const names = error.issues.map((i) => i.variable);
-    expect(names).toEqual(expect.arrayContaining(["DATABASE_URL", "REDIS_URL", "STORAGE_PROVIDER"]));
+    expect(names).toEqual(expect.arrayContaining(["DATABASE_URL", "REDIS_URL"]));
   });
 
   it("treats an empty string as unset", () => {
@@ -114,12 +114,71 @@ describe("refineStorage", () => {
     });
   });
 
-  it("requires a root directory when the provider is local", () => {
-    const error = configErrorOf(() =>
-      parseConfig(schema, { ...validEnv, STORAGE_PROVIDER: "local" }),
-    );
+  it("defaults to local storage under .data/storage outside production", () => {
+    const env = { DATABASE_URL: validEnv.DATABASE_URL, REDIS_URL: validEnv.REDIS_URL };
 
-    expect(error.issues.map((i) => i.variable)).toContain("STORAGE_LOCAL_ROOT");
+    expect(toStorageConfig(parseConfig(schema, env))).toEqual({ provider: "local", root: ".data/storage" });
+  });
+
+  it("requires an explicit local root in production, so an ephemeral disk is never used silently", () => {
+    const env = { DATABASE_URL: validEnv.DATABASE_URL, REDIS_URL: validEnv.REDIS_URL, NODE_ENV: "production" };
+
+    const error = configErrorOf(() => parseConfig(schema, env));
+
+    expect(error.issues).toContainEqual({
+      variable: "STORAGE_LOCAL_ROOT",
+      reason: "is required when STORAGE_PROVIDER=local and NODE_ENV=production",
+    });
+  });
+
+  it("accepts a local root on a mounted network filesystem", () => {
+    const env = { DATABASE_URL: validEnv.DATABASE_URL, REDIS_URL: validEnv.REDIS_URL, STORAGE_LOCAL_ROOT: "/mnt/nfs/images" };
+
+    expect(toStorageConfig(parseConfig(schema, env))).toEqual({ provider: "local", root: "/mnt/nfs/images" });
+  });
+
+  it.each([
+    ["azure-blob", ["STORAGE_AZURE_ACCOUNT_NAME", "STORAGE_AZURE_ACCOUNT_KEY", "STORAGE_AZURE_CONTAINER"]],
+    ["sftp", ["STORAGE_SFTP_HOST", "STORAGE_SFTP_USERNAME", "STORAGE_SFTP_PASSWORD"]],
+    ["webdav", ["STORAGE_WEBDAV_URL"]],
+  ] as const)("requires the %s connection variables", (provider, variables) => {
+    const env = { DATABASE_URL: validEnv.DATABASE_URL, REDIS_URL: validEnv.REDIS_URL, STORAGE_PROVIDER: provider };
+
+    const error = configErrorOf(() => parseConfig(schema, env));
+
+    expect(error.issues.map((i) => i.variable)).toEqual(expect.arrayContaining([...variables]));
+  });
+
+  it("requires an SFTP host key fingerprint in production", () => {
+    const env = {
+      DATABASE_URL: validEnv.DATABASE_URL,
+      REDIS_URL: validEnv.REDIS_URL,
+      NODE_ENV: "production",
+      STORAGE_PROVIDER: "sftp",
+      STORAGE_SFTP_HOST: "files.example.com",
+      STORAGE_SFTP_USERNAME: "images",
+      STORAGE_SFTP_PASSWORD: "pw",
+    };
+
+    const error = configErrorOf(() => parseConfig(schema, env));
+
+    expect(error.issues.map((i) => i.variable)).toContain("STORAGE_SFTP_HOST_KEY_SHA256");
+  });
+
+  it("turns escaped newlines in an SFTP private key into real ones", () => {
+    const env = {
+      DATABASE_URL: validEnv.DATABASE_URL,
+      REDIS_URL: validEnv.REDIS_URL,
+      STORAGE_PROVIDER: "sftp",
+      STORAGE_SFTP_HOST: "files.example.com",
+      STORAGE_SFTP_USERNAME: "images",
+      // As written in a single-line .env file: literal backslash-n sequences.
+      STORAGE_SFTP_PRIVATE_KEY: String.raw`-----BEGIN KEY-----\nabc\n-----END KEY-----`,
+    };
+
+    const storage = toStorageConfig(parseConfig(schema, env));
+
+    expect(storage).toMatchObject({ provider: "sftp", privateKey: "-----BEGIN KEY-----\nabc\n-----END KEY-----" });
   });
 
   it("rejects a half-configured static credential", () => {

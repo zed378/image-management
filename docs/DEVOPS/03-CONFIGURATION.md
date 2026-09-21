@@ -108,16 +108,34 @@ Grouped by fragment. Required means "no default; boot fails without it".
 
 ### Storage
 
+Provider-specific requirements are cross-field rules, reported as
+"is required when STORAGE_PROVIDER=...". Full guidance per provider:
+`docs/STORAGE/10-STORAGE-PROVIDER-ADAPTER.md`.
+
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `STORAGE_PROVIDER` | **yes** | -- | `s3` or `local` |
+| `STORAGE_PROVIDER` | no | `local` | `local`, `s3`, `azure-blob`, `sftp`, `webdav` (`ADR-021`) |
+| `STORAGE_LOCAL_ROOT` | in production, when `local` | `.data/storage` | A local directory or a mounted NFS/SMB/EFS share; shared across hosts if multi-host |
 | `STORAGE_S3_BUCKET` | when `s3` | -- | |
 | `STORAGE_S3_REGION` | no | `us-east-1` | |
-| `STORAGE_S3_ENDPOINT` | no | AWS default | Set for R2, MinIO, or any S3-compatible store |
-| `STORAGE_S3_ACCESS_KEY_ID` | paired | -- | Both or neither; neither means an IAM role supplies credentials |
+| `STORAGE_S3_ENDPOINT` | no | AWS default | Set for R2, MinIO, GCS interop, any S3-compatible store |
+| `STORAGE_S3_ACCESS_KEY_ID` | paired | -- | Both or neither; neither means an IAM role |
 | `STORAGE_S3_SECRET_ACCESS_KEY` | paired | -- | Secret |
 | `STORAGE_S3_FORCE_PATH_STYLE` | no | `false` | `true` for MinIO |
-| `STORAGE_LOCAL_ROOT` | when `local` | -- | Filesystem adapter root (development and tests) |
+| `STORAGE_AZURE_ACCOUNT_NAME` | when `azure-blob` | -- | |
+| `STORAGE_AZURE_ACCOUNT_KEY` | when `azure-blob` | -- | Secret |
+| `STORAGE_AZURE_CONTAINER` | when `azure-blob` | -- | |
+| `STORAGE_AZURE_ENDPOINT` | no | public cloud | Azurite or a sovereign cloud |
+| `STORAGE_SFTP_HOST` | when `sftp` | -- | |
+| `STORAGE_SFTP_PORT` | no | `22` | |
+| `STORAGE_SFTP_USERNAME` | when `sftp` | -- | |
+| `STORAGE_SFTP_PASSWORD` / `STORAGE_SFTP_PRIVATE_KEY` | one, when `sftp` | -- | Secret; `
+` in the key becomes a newline |
+| `STORAGE_SFTP_ROOT` | no | `/` | |
+| `STORAGE_SFTP_HOST_KEY_SHA256` | in production, when `sftp` | -- | Pinned host key; MITM defence |
+| `STORAGE_WEBDAV_URL` | when `webdav` | -- | |
+| `STORAGE_WEBDAV_USERNAME` / `STORAGE_WEBDAV_PASSWORD` | no | -- | Password is a secret |
+| `STORAGE_WEBDAV_ROOT` | no | `/` | |
 
 ### `api` only
 

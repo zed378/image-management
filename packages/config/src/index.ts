@@ -7,6 +7,7 @@ export { parseConfig, withDotEnv, type RawEnv } from "./load-config";
 export {
   LOG_LEVELS,
   NODE_ENVS,
+  DEFAULT_DEV_STORAGE_ROOT,
   STORAGE_PROVIDERS,
   databaseFragment,
   processFragment,
@@ -23,4 +24,5 @@ export {
   type ProcessConfig,
   type RedisConfig,
   type StorageConfig,
+  type StorageProviderName,
 } from "./fragments";

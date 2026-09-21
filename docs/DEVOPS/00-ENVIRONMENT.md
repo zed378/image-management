@@ -23,7 +23,7 @@ machinery that keeps the platform deployable and recoverable.
 | Started by | `pnpm infra:up` | Testcontainers, per test run | Deploy pipeline | Deploy pipeline |
 | PostgreSQL | compose, `:55432` | throwaway container | managed instance | managed instance, HA |
 | Redis | compose, `:56379` | throwaway container | managed instance | managed instance, persistence on |
-| Object storage | MinIO, `:59000` | throwaway MinIO | S3 or R2 bucket, `-staging` | S3 or R2 bucket, `-production` |
+| Storage (ADR-021) | local disk, `.data/storage` (MinIO at `:59000` for S3 testing) | throwaway directory + MinIO/Azurite/SFTP/WebDAV for conformance | any provider; a shared mount if multi-host | any provider; a shared mount if multi-host |
 | CDN | none (direct to api) | none | CDN, staging zone | CDN, production zone |
 | Secrets | `.env` from `.env.example` | constants in test setup | secrets manager | secrets manager |
 | Data | disposable | disposable, per run | synthetic only | real |
@@ -37,9 +37,13 @@ machinery that keeps the platform deployable and recoverable.
   environment-specific is baked in; everything varies through configuration.
 - **The migration set.** Every environment runs the same migrations in the
   same order (`05-DATABASE-MIGRATION.md`).
-- **The storage code path.** Local MinIO, test MinIO, and production S3/R2
-  all go through the same S3-compatible adapter (`ADR-002`). This is the
-  property that makes "works locally, breaks in prod" storage bugs rare.
+- **The storage contract.** Every provider -- local disk, NFS, S3, Azure,
+  SFTP, WebDAV -- implements one interface and passes one conformance suite
+  (`ADR-001`, `ADR-021`), which is what keeps "works locally, breaks in prod"
+  storage bugs rare even when the two environments use different providers.
+- **Multi-host `local` storage is shared storage.** When `api` and `worker`
+  run on more than one machine with `STORAGE_PROVIDER=local`,
+  `STORAGE_LOCAL_ROOT` must be the same NFS/SMB/EFS mount on all of them.
 - **Security controls.** No environment disables tenant scoping, signature
   verification, or content validation "for convenience". A control that is
   off in any environment is untested in that environment.

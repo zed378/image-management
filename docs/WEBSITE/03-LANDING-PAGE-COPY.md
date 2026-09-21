@@ -96,8 +96,8 @@ assumes the reader already knows the category.
 
 ```
 Add width, crop, and format to a URL. {{PRODUCT}} transforms the image,
-caches the result in your own S3, R2, or MinIO bucket, and delivers it from
-the edge. The URL format is a published specification, not an implementation
+stores the result on storage you already own -- a disk, an NFS share, or an
+S3 bucket -- and delivers it from the edge. The URL format is a published specification, not an implementation
 detail.
 ```
 
@@ -173,8 +173,9 @@ Your bucket stays yours
 Body:
 
 ```
-{{PRODUCT}} reads and writes an S3-compatible bucket that belongs to you —
-AWS S3, Cloudflare R2, or a self-hosted MinIO. Originals go in as you
+{{PRODUCT}} reads and writes storage that belongs to you — the server's own
+disk, an NFS or SMB share, an S3-compatible bucket (AWS S3, Cloudflare R2,
+MinIO), Azure Blob, SFTP, or WebDAV. Originals go in as you
 uploaded them. Derivatives are written alongside them under predictable
 keys.
 
@@ -190,8 +191,8 @@ The exit path is the feature. A platform that also owns your storage has
 made leaving a migration project.
 ```
 
-**PROOF:** `ADR-001`, `ADR-002`, and the storage adapter conformance suite
-(`P0-07`). Claimable today.
+**PROOF:** `ADR-001`, `ADR-021`, and the storage adapter conformance suite
+(`P0-07`), which every provider passes against a real server. Claimable today.
 
 ---
 

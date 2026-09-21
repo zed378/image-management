@@ -24,10 +24,10 @@ make:
    vectors -- not as a reference page that describes whatever the
    implementation currently does. Anyone can implement against it; anyone can
    verify us against it.
-2. **Your storage stays yours.** The platform reads and writes your S3,
-   Cloudflare R2, or MinIO bucket. Leaving means pointing a different
-   service at the same bucket, not re-uploading a catalog
-   (`ADR-001`, `ADR-002`).
+2. **Your storage stays yours.** The platform reads and writes storage you
+   already own -- a local disk, an NFS or SMB share, an S3/R2/MinIO bucket,
+   Azure Blob, SFTP, or WebDAV. Leaving means pointing a different service at
+   the same storage, not re-uploading a catalog (`ADR-001`, `ADR-021`).
 
 The category sells "complete platform." We sell a **narrow, specified,
 non-capturing** one. The narrowness is the feature.
@@ -58,7 +58,7 @@ Ordered by how much page real estate they get.
 
 A backend or full-stack engineer at a team of 5-50, running an e-commerce
 catalog, a marketplace, a media site, or a user-generated-content product.
-They already store images in S3 or R2. They have either hand-rolled
+They already store images on a server disk, an NFS share, or in S3/R2. They have either hand-rolled
 thumbnail generation with a Lambda and regret it, or they are on Cloudinary
 and cannot model next month's bill.
 
@@ -98,7 +98,7 @@ gotten something true.
 
 1. **What it is** -- images in, transformed images out, over a URL.
 2. **What is different** -- the transformation URL is a published protocol,
-   and the bytes live in your bucket.
+   and the bytes live on storage you own.
 3. **What it costs you to try** -- one URL change; imgix and Cloudinary
    parameter names already work.
 4. **Why it is fast** -- one canonical cache key per derivative, so the edge
@@ -116,7 +116,7 @@ not ship on the page.**
 | Claim | Proof | Status |
 |---|---|---|
 | The protocol is specified | `docs/IMAGE-DELIVERY-PROTOCOL/`, published as docs + conformance vectors | Available now |
-| Storage stays yours | `ADR-001`, `ADR-002`, the adapter conformance suite | Available now |
+| Storage stays yours | `ADR-001`, `ADR-021`, the adapter conformance suite (5 providers, real servers) | Available now |
 | imgix/Cloudinary URLs work | The alias table (`ADR-012`), plus a live converter on the page | Needs `P3-02` |
 | One derivative per transformation | `ADR-004` + golden vectors | Needs `P3-10` |
 | Specific byte savings | Real measurements from the same pipeline the page runs on | **Needs `P3-01` benchmark** |
@@ -140,9 +140,10 @@ skeptically?**
 - Numbers with units and provenance. "412 KB to 38 KB, AVIF, quality 55"
   beats "up to 90% smaller."
 - Short sentences. Active voice. Second person.
-- Name the trade-off. A page that admits AVIF encoding is expensive and
-  explains how that is handled is more credible than one that pretends it
-  is free.
+- Name the trade-off. A page that admits what is expensive -- the first
+  request for a new size, high encoder effort, the AVIF size guard's second
+  encode -- and explains how that is handled is more credible than one that
+  pretends everything is free (`docs/PERFORMANCE/02`, `ADR-016`).
 - Say what it does not do. The scope exclusions are a feature for this
   audience.
 

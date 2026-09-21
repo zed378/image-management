@@ -46,7 +46,7 @@ Two contracts, equal in weight:
 | Cache | Redis | |
 | Queue | BullMQ on Redis | Processing + webhook delivery. Never inline (ADR-007). |
 | Image processing | `sharp` (libvips) | Confirmed in `P3-01`. |
-| Object storage | S3-compatible adapter | S3 / R2 / MinIO from one implementation (ADR-002). |
+| Storage | Local disk by default (ADR-021) | Also NFS/SMB mounts, S3-compatible, Azure Blob, SFTP, WebDAV. |
 | IDs | ULID | Sortable, non-enumerable (ADR-003). |
 | Validation | Zod | The schema is the single source of both runtime validation and the TS type. |
 | Logging | pino, JSON to stdout | See [`12-LOGGING-CONVENTIONS.md`](./12-LOGGING-CONVENTIONS.md). |

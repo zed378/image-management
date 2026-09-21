@@ -59,7 +59,7 @@ Two conventions used throughout:
 | Cache | Redis (ioredis) | |
 | Queue | BullMQ | on Redis; processing + webhook delivery |
 | Image processing | `sharp` (libvips) | confirmed in `P3-01` |
-| Object storage | S3-compatible adapter | S3 / R2 / MinIO (ADR-002) |
+| Storage | Local disk by default | plus NFS/SMB mounts, S3-compatible, Azure Blob, SFTP, WebDAV (ADR-021) |
 | Validation | Zod | 3.x; schema is also the type source |
 | IDs | ULID | user-facing resource ids (ADR-003) |
 | Logging | pino | JSON to stdout |
@@ -1283,8 +1283,10 @@ DB_STATEMENT_TIMEOUT_MS=5000
 REDIS_URL=redis://localhost:6379
 REDIS_KEY_PREFIX=img:v1
 
-# Storage (S3-compatible: AWS S3, Cloudflare R2, MinIO -- ADR-002)
-STORAGE_PROVIDER=s3
+# Storage (ADR-021: local disk by default; see docs/DEVOPS/03 for the other providers)
+STORAGE_PROVIDER=local
+STORAGE_LOCAL_ROOT=/var/lib/image-delivery/storage
+# STORAGE_PROVIDER=s3
 STORAGE_S3_ENDPOINT=http://localhost:9000
 STORAGE_S3_REGION=us-east-1
 STORAGE_S3_BUCKET=image-delivery-dev

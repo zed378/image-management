@@ -12,11 +12,11 @@ import { describe, expect, it } from "vitest";
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 const tsxLoader = import.meta.resolve("tsx/esm");
 
+// Storage defaults to local disk (ADR-021), so only these are required
+// outside production.
 const REQUIRED = {
   DATABASE_URL: "postgres://u:p@localhost:5432/db",
   REDIS_URL: "redis://localhost:6379",
-  STORAGE_PROVIDER: "s3",
-  STORAGE_S3_BUCKET: "images",
 } as const;
 
 const boot = (service: "api" | "worker", env: Record<string, string>) =>
@@ -44,5 +44,12 @@ describe.each(["api", "worker"] as const)("%s service boot", (service) => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(variable);
+  });
+
+  it("refuses to start in production on local storage without an explicit root", () => {
+    const result = boot(service, { ...REQUIRED, NODE_ENV: "production" });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("STORAGE_LOCAL_ROOT");
   });
 });

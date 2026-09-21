@@ -106,8 +106,10 @@ diverge silently:
   the processing and webhook-delivery workers.
 - **Image processing:** `sharp` (libvips-based) -- see ADR-{n/a, record
   when chosen in `P3-01`}.
-- **Object storage:** an S3-compatible adapter (works against AWS S3,
-  Cloudflare R2, and MinIO for local dev) per ADR-002.
+- **Storage:** local disk by default, including any mounted network
+  filesystem (NFS, SMB, EFS); S3-compatible object storage, Azure Blob,
+  SFTP and WebDAV as alternatives -- all behind one adapter contract
+  (ADR-001, ADR-021).
 - **Local infra:** Docker Compose (Postgres, Redis, MinIO).
 - **CDN:** provider chosen and recorded in `P4-01`.
 

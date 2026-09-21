@@ -121,7 +121,7 @@ convenience (`03-LANDING-PAGE-COPY.md`, section 9).
 |---|---|---|
 | `/docs/best-practices` | Use it well | Width ladders, avoiding cardinality blowup, when to use `dpr`, caching headers, when to pre-generate |
 | `/docs/caching` | Explain the cache | Edge vs derivative store vs application cache (the three are routinely confused), what invalidates what, `stale-while-revalidate` |
-| `/docs/performance` | Set expectations honestly | Which operations are cheap, which are expensive and why (AVIF encode named explicitly), cold vs warm latency, what to expect on a catalog import |
+| `/docs/performance` | Set expectations honestly | Which operations are cheap, which are expensive and why (encoder effort and the AVIF size guard named explicitly, with the `docs/PERFORMANCE/02` numbers), cold vs warm latency, what to expect on a catalog import |
 | `/docs/troubleshooting` | Fix it now | Symptom-first |
 
 `/docs/troubleshooting` entries, symptom-first, each with cause and fix:

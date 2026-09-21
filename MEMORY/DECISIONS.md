@@ -41,7 +41,7 @@ are hit.
   P0-07), not a rewrite.
 
 ### ADR-002: S3-compatible API as the v1 storage baseline
-- Status: Accepted
+- Status: Superseded by ADR-021 (local disk is now the default; S3 remains a supported provider)
 - Context: S3, Cloudflare R2, and MinIO (local dev) all speak the same S3
   API; GCS and Azure Blob do not.
 - Decision: Implement one S3-compatible adapter first, covering three
@@ -716,3 +716,72 @@ are hit.
   first migration test failed with "Migrator is not a constructor"). `int8`
   columns are parsed to JavaScript numbers globally, which is safe for every
   byte count and counter on this platform (< 2^53).
+
+### ADR-021: Local disk is the default storage; network filesystems, object
+    stores, SFTP and WebDAV are first-class providers
+- Status: Accepted (supersedes ADR-002)
+- Date: 2026-09-21
+- Context: `ADR-002` made an S3-compatible API the v1 baseline and treated
+  every other provider as later work. The product owner asked (2026-09-21)
+  for the opposite default: storage should be **the disk of the machine the
+  platform runs on**, with NFS, object storage, and other network- or
+  internet-reachable storage supported alongside it. The request is sound
+  on its own terms -- a self-hosted deployment should work with zero cloud
+  accounts -- and it changes three things `ADR-002` had settled: the default,
+  the provider set, and the assumption that every provider can issue its own
+  presigned URLs.
+- Decision:
+  1. **`STORAGE_PROVIDER` defaults to `local`**: a directory, `.data/storage`
+     in development. In production `STORAGE_LOCAL_ROOT` must be set
+     explicitly, and the process refuses to start otherwise -- a container
+     writing to its own ephemeral filesystem would lose every original on
+     restart.
+  2. **Network filesystems are the `local` provider.** NFS, SMB/CIFS, AWS
+     EFS, Azure Files, CephFS and GlusterFS all present as a mounted
+     directory, so one code path serves them. The adapter writes to a temp
+     file in the target's own directory, `fsync`s it, and renames it into
+     place: rename within a directory is atomic on local filesystems and on
+     NFS, and the `fsync` puts the data on the server before the name that
+     makes it visible exists.
+  3. **Five providers**, each passing the same conformance suite against a
+     real server: `local` (and every mounted network filesystem), `s3`
+     (AWS S3, Cloudflare R2, MinIO, Wasabi, Backblaze B2, DigitalOcean
+     Spaces, Ceph RGW, GCS via S3 interoperability), `azure-blob` (Azure
+     has no S3 API), `sftp`, and `webdav`.
+  4. **Platform-proxied presigned URLs.** Only S3 and Azure can sign their
+     own URLs. For the others, `withProxyPresign()` issues an HMAC token
+     binding the key, method, expiry, content type and maximum size, served
+     by the platform's own endpoint (`P2-03`). Direct upload therefore works
+     identically on every provider; a client cannot tell which kind of URL
+     it received.
+  5. **Capabilities are declared, not assumed.** Each adapter states
+     `nativePresign`; callers branch on the capability, never on the provider
+     name.
+- Alternatives considered: (a) **Keep S3 as the default and add local as an
+  option** -- rejected: it contradicts the stated requirement, and it makes
+  the simplest deployment (one machine) the one that needs the most setup.
+  (b) **Treat NFS as its own provider** -- rejected: it would duplicate the
+  local adapter's code for no behavioural difference; what matters on NFS
+  (same-directory rename, fsync before rename) is already what the local
+  adapter does. (c) **Local disk without proxy presign, disabling direct
+  upload** -- rejected: it would make upload behaviour depend on the storage
+  choice, which is exactly the leak `ADR-001` exists to prevent.
+  (d) **A generic multi-backend library** (e.g. one virtual-filesystem
+  abstraction for everything) -- rejected for the same reason `ADR-002`
+  rejected one: a security-relevant path (presigned URLs, path containment)
+  should not rest on someone else's abstraction; five small adapters behind
+  one tested contract are auditable.
+- Consequences: **`local` on more than one host requires a shared
+  filesystem.** `api` and `worker` both read and write originals and
+  derivatives; on separate machines they must mount the same NFS/SMB/EFS
+  export, or originals written by one are invisible to the other. This is
+  documented in `docs/STORAGE/10` and `docs/DEVOPS/00`. Filesystem-like
+  backends store content types in `.meta/` sidecar files, which object
+  stores keep natively; keys can never start a segment with `.`, so the
+  sidecars cannot collide with objects. SFTP operations are serialized on one
+  SSH connection, which caps its throughput -- positioned for archival and
+  low-volume use. Writing the conformance suite found three real bugs before
+  any caller existed: a streamed local write that never completed, Windows
+  refusing to rename over a file a reader holds open (fixed with a bounded
+  retry), and the WebDAV adapter mislabelling an invalid key as a backend
+  failure. `ADR-001` stands unchanged; this ADR is how it is now realized.

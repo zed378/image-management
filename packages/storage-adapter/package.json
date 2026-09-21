@@ -5,7 +5,11 @@
   "type": "module",
   "description": "StorageAdapter interface and provider implementations (ADR-001, P0-07).",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./s3": "./src/adapters/s3.ts",
+    "./azure-blob": "./src/adapters/azure-blob.ts",
+    "./sftp": "./src/adapters/sftp.ts",
+    "./webdav": "./src/adapters/webdav.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."

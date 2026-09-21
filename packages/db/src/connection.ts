@@ -14,6 +14,8 @@ export type DbOptions = {
   readonly statementTimeoutMs: number;
   /** Shows up in pg_stat_activity, so an operator can tell api from worker. */
   readonly applicationName: string;
+  /** Called when an idle pooled connection dies (see createDb). */
+  readonly onPoolError?: (err: Error) => void;
 };
 
 export type Db = Kysely<Database>;
@@ -33,5 +35,13 @@ export const createDb = (options: DbOptions): Db => {
     // /readyz depends on this surfacing as an error.
     connectionTimeoutMillis: 5_000,
   });
+  // When PostgreSQL restarts, fails over, or an admin terminates backends,
+  // idle pooled connections receive FATAL 57P01 and the pool emits "error".
+  // An EventEmitter "error" with no listener crashes the Node process -- so
+  // without this handler, one database restart would take down every api and
+  // worker replica. The pool discards the broken client by itself; we only
+  // need to observe it. (Found by the /readyz integration test stopping a
+  // real PostgreSQL.)
+  pool.on("error", (err) => options.onPoolError?.(err));
   return new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
 };

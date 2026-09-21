@@ -28,10 +28,16 @@ Two stages:
 
 1. **build** -- `node:24-bookworm-slim`. Installs the workspace from the
    frozen lockfile, bundles the service with `tsup` (workspace packages are
-   inlined, `ADR-018`), then `pnpm deploy --prod` produces a standalone
-   production `node_modules` for that one service. Native modules (`sharp`
-   and its libvips) are resolved for the image's platform here, not copied
-   from the developer's machine.
+   inlined; third-party packages stay external, `ADR-018`), then
+   `pnpm deploy --prod` produces a standalone production `node_modules` for
+   that one service. Native modules (`sharp` and its libvips, `ssh2`) are
+   resolved for the image's platform here, not copied from the developer's
+   machine.
+
+   Because the bundle imports third-party packages by name, each must be a
+   **direct** dependency of the service; `pnpm build` runs
+   `scripts/check-bundle-deps.mjs`, which fails the build when the bundle
+   imports an undeclared package (the ADR-018 addendum in `ADR-020`).
 2. **runtime** -- `node:24-bookworm-slim`, the bundle plus production
    dependencies only. Runs as the unprivileged `node` user.
 
@@ -68,8 +74,10 @@ worth knowing:
 
 ## Verification
 
-- `docker build -f deploy/Dockerfile --build-arg SERVICE=api .` builds, and
-  the resulting image loads its bundle (verified 2026-09-21 in `P0-02`).
+- `docker build -f deploy/Dockerfile --build-arg SERVICE=api .` builds; the
+  container, run in production mode against PostgreSQL and Redis, reports
+  `/readyz` ready and shuts down cleanly on `SIGTERM` (verified 2026-09-21 in
+  `P0-08`).
 - `pnpm infra:up` brings all three dependencies to healthy and creates the
   development bucket.
 

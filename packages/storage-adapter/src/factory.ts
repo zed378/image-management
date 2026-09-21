@@ -1,24 +1,25 @@
 import type { StorageConfig } from "@image-delivery/config";
 
-import { AzureBlobStorageAdapter } from "./adapters/azure-blob";
 import { LocalFileSystemAdapter } from "./adapters/local";
-import { S3StorageAdapter } from "./adapters/s3";
-import { SftpStorageAdapter } from "./adapters/sftp";
-import { WebDavStorageAdapter } from "./adapters/webdav";
 import type { StorageAdapter } from "./types";
 
-/** Build the adapter the configuration names. The only place providers are chosen. */
-export const createStorageAdapter = (config: StorageConfig): StorageAdapter => {
+/**
+ * Build the adapter the configuration names -- the only place a provider is
+ * chosen. Network providers are imported lazily, so a deployment on local
+ * disk never loads the AWS, Azure, SSH or WebDAV client libraries: faster
+ * startup, less memory, and less third-party code in the process.
+ */
+export const createStorageAdapter = async (config: StorageConfig): Promise<StorageAdapter> => {
   switch (config.provider) {
     case "local":
       return new LocalFileSystemAdapter({ root: config.root });
     case "s3":
-      return new S3StorageAdapter(config);
+      return new (await import("./adapters/s3")).S3StorageAdapter(config);
     case "azure-blob":
-      return new AzureBlobStorageAdapter(config);
+      return new (await import("./adapters/azure-blob")).AzureBlobStorageAdapter(config);
     case "sftp":
-      return new SftpStorageAdapter(config);
+      return new (await import("./adapters/sftp")).SftpStorageAdapter(config);
     case "webdav":
-      return new WebDavStorageAdapter(config);
+      return new (await import("./adapters/webdav")).WebDavStorageAdapter(config);
   }
 };

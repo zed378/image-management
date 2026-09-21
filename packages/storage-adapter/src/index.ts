@@ -1,13 +1,14 @@
 // The StorageAdapter interface and every provider implementation (ADR-001,
 // ADR-021, docs/STORAGE/01-STORAGE-ABSTRACTION.md). The only package that may
 // import a storage provider SDK.
+//
+// The network adapters are NOT re-exported here: importing this barrel must
+// not load the AWS, Azure, SSH or WebDAV clients. createStorageAdapter()
+// loads the configured one lazily; code that needs a class directly imports
+// the subpath (@image-delivery/storage-adapter/s3, /azure-blob, /sftp, /webdav).
 
-export { AzureBlobStorageAdapter, type AzureBlobStorageOptions } from "./adapters/azure-blob";
 export { LocalFileSystemAdapter, type LocalStorageOptions } from "./adapters/local";
 export { MemoryStorageAdapter } from "./adapters/memory";
-export { S3StorageAdapter, type S3StorageOptions } from "./adapters/s3";
-export { SftpStorageAdapter, type SftpStorageOptions } from "./adapters/sftp";
-export { WebDavStorageAdapter, type WebDavStorageOptions } from "./adapters/webdav";
 export { toBuffer, toReadable } from "./body";
 export {
   StorageCapabilityError,

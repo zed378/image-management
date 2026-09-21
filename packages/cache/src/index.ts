@@ -1,2 +1,3 @@
-// Application cache interface with Redis and in-memory implementations.
-export const cachePackageName = "@image-delivery/cache";
+// Application cache and Redis connections (docs/ENGINEERING/08).
+
+export { createRedisClient, type RedisClient } from "./redis";

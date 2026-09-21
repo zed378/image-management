@@ -16,14 +16,27 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:coverage": "vitest run --coverage",
-    "deps:check": "depcruise packages services apps sdks --config .dependency-cruiser.cjs",
+    "deps:check": "node scripts/deps-check.mjs",
     "dev": "turbo run dev --parallel",
     "infra:up": "docker compose -f deploy/docker-compose.yml up -d --wait postgres redis minio && docker compose -f deploy/docker-compose.yml run --rm minio-init",
     "infra:down": "docker compose -f deploy/docker-compose.yml down",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm deps:check && pnpm test:unit && pnpm build",
     "db:migrate": "tsx services/api/src/migrate.ts",
     "audit:deps": "pnpm audit --audit-level=high",
-    "scan:secrets": "docker run --rm -v \"$PWD:/repo\" zricethezav/gitleaks:v8.28.0 git /repo --no-banner --redact --config /repo/.gitleaks.toml"
+    "scan:secrets": "docker run --rm -v \"$PWD:/repo\" zricethezav/gitleaks:v8.28.0 git /repo --no-banner --redact --config /repo/.gitleaks.toml",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged",
+    "commit-msg": "node scripts/commit-msg.mjs \"$1\"",
+    "pre-push": "pnpm typecheck"
+  },
+  "lint-staged": {
+    "*.{ts,mts}": [
+      "prettier --write",
+      "eslint --fix --max-warnings=0 --no-warn-ignored"
+    ],
+    "*.{js,mjs,cjs,json,yml,yaml}": "prettier --write"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

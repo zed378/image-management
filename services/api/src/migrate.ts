@@ -3,9 +3,16 @@
 // (docs/DEVOPS/05-DATABASE-MIGRATION.md). Needs only DATABASE_URL, so it can
 // run from a job that has no access to Redis or storage.
 
-import { ConfigError, databaseFragment, parseConfig, toDatabaseConfig, withDotEnv } from "@image-delivery/config";
-import { createDb, migrateToLatest } from "@image-delivery/db";
 import { z } from "zod";
+
+import {
+  ConfigError,
+  databaseFragment,
+  parseConfig,
+  toDatabaseConfig,
+  withDotEnv,
+} from "@image-delivery/config";
+import { createDb, migrateToLatest } from "@image-delivery/db";
 
 const main = async (): Promise<void> => {
   let database;
@@ -24,7 +31,9 @@ const main = async (): Promise<void> => {
   try {
     const { applied } = await migrateToLatest(db);
     process.stdout.write(
-      applied.length === 0 ? "migrate: already up to date\n" : `migrate: applied ${applied.join(", ")}\n`,
+      applied.length === 0
+        ? "migrate: already up to date\n"
+        : `migrate: applied ${applied.join(", ")}\n`,
     );
   } finally {
     await db.destroy();

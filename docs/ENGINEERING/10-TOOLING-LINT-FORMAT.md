@@ -26,7 +26,9 @@ pnpm test            # vitest run (unit + integration)
 pnpm test:coverage   # with the thresholds from doc 09 enforced
 pnpm build           # every package
 pnpm deps:check      # dependency-cruiser boundary + cycle rules
-pnpm audit           # dependency vulnerabilities (P0-10)
+pnpm audit:deps      # dependency vulnerabilities, blocking at high (P0-10)
+pnpm scan:secrets    # gitleaks over the full history (P0-10)
+pnpm verify          # format:check, lint, typecheck, deps:check, test:unit, build
 ```
 
 `pnpm lint && pnpm typecheck && pnpm test` is the baseline Definition of
@@ -39,8 +41,24 @@ findings hide in it.
 
 Flat config at the root (`eslint.config.js`), shared by every package, with
 per-glob overrides for the layering rules. Base: `typescript-eslint`
-strict + type-checked, `import`, `boundaries`, `vitest`, `unicorn`
-(selectively).
+`strictTypeChecked` (type information through the project service) and
+`eslint-plugin-import-x`. Module-boundary rules live in dependency-cruiser,
+not in an ESLint boundaries plugin: they are properties of the graph, and
+one tool owning them avoids two configs that drift.
+
+**Proof that the rules fire.** `tools/tests/lint-rules.test.ts` lints a
+violating snippet for every architectural rule *as if* it lived at a real
+path, through this config, and asserts the rule's message; it also asserts
+the rules stay silent where the code belongs (the storage adapter may import
+an SDK). `tools/tests/depcruise-rules.test.ts` does the same for every
+dependency-cruiser rule against a planted fixture tree. Both run in
+`test:unit`, so a config edit that silently disables a rule fails CI.
+
+**How `no-restricted-imports` blocks compose.** ESLint *replaces* a rule's
+options when two config blocks match one file; it does not merge them. So
+each file set (controllers/routes, services, repositories, everything else)
+has one block restating every import restriction that applies to it. Adding
+a restriction means adding it to each block whose files it covers.
 
 ### Architectural rules
 
@@ -48,9 +66,9 @@ Each of these prevents a specific failure this specification names. They are
 not style.
 
 ```js
-// Controllers may not reach past the service layer.
+// Controllers (and Fastify route files) may not reach past the service layer.
 {
-  files: ["**/*.controller.ts"],
+  files: ["services/*/src/**/*.controller.ts", "services/*/src/**/*.routes.ts"],
   rules: {
     "no-restricted-imports": ["error", {
       patterns: [
@@ -69,10 +87,10 @@ not style.
   rules: {
     "no-restricted-imports": ["error", {
       paths: [
-        { name: "express", message: "Services must not know about HTTP. See ENGINEERING/01 section 8." },
+        { name: "fastify", message: "Services must not know about HTTP; workers reuse them. See ENGINEERING/01 section 8." },
       ],
       patterns: [
-        { group: ["**/middlewares/*"],
+        { group: ["**/http/*", "**/middlewares/*"],
           message: "A service that needs middleware is doing controller work." },
       ],
     }],
@@ -86,14 +104,17 @@ not style.
   rules: {
     "no-restricted-imports": ["error", {
       patterns: [
-        { group: ["@aws-sdk/*", "@google-cloud/storage", "@azure/storage-blob", "minio"],
+        { group: ["@aws-sdk/*", "@azure/storage-blob", "@google-cloud/storage", "minio",
+                  "ssh2-sftp-client", "webdav"],
           message: "Provider SDKs live only in packages/storage-adapter. ADR-001." },
       ],
     }],
   },
 }
 
-// One params-hash implementation (ADR-004/009).
+// One params-hash implementation (ADR-004/009). The one other legitimate
+// createHash (the SFTP adapter's host-key fingerprint) carries an inline
+// eslint-disable with its reason, so the exception is visible where it is.
 {
   files: ["**/*.ts"],
   ignores: ["packages/transform-params/**"],
@@ -121,7 +142,7 @@ not style.
 
 // The unscoped escape hatch is not available to normal service code.
 {
-  files: ["services/*/src/modules/**/*.ts"],
+  files: ["services/*/src/**/*.service.ts", "services/*/src/modules/**/*.repository.ts"],
   rules: {
     "no-restricted-imports": ["error", {
       paths: [
@@ -150,15 +171,26 @@ blocks. A developer who hits a rule and cannot find out why will disable it.
 | `@typescript-eslint/switch-exhaustiveness-check` | An unhandled state in a discriminated union |
 | `@typescript-eslint/no-unnecessary-condition` | Dead checks that hide a real one |
 | `no-restricted-syntax` on `TSEnumDeclaration` | `enum` (see doc 04) |
-| `import/no-default-export` | Inconsistent import names |
-| `import/no-cycle` | Import cycles |
-| `import/order` (configured groups) | Diff noise in every pull request |
+| `import-x/no-default-export` | Inconsistent import names (off only for tool configs whose loader requires one) |
+| `import-x/order` (configured groups) | Diff noise in every pull request |
 | `eqeqeq`, `no-param-reassign`, `prefer-const` | Ordinary footguns |
+
+Import cycles are dependency-cruiser's `no-circular`, not
+`import-x/no-cycle`: the latter re-walks the module graph per file and
+doubled lint time for the same guarantee.
+
+`@typescript-eslint/require-await` is **off**, deliberately: an `async`
+function implementing a Promise-returning interface (a storage adapter
+method, a readiness check, a test stub) turns a synchronous throw into a
+rejection, which is the contract the caller relies on.
 
 ### Test-file relaxations
 
-In `**/*.test.ts`: `no-explicit-any` and the `no-unsafe-*` family are
-warnings, since stub construction sometimes needs them. Nothing else is
+In `**/*.test.ts` and `**/tests/**`: `no-explicit-any` and the `no-unsafe-*`
+family are warnings, since stub construction sometimes needs them. With
+`--max-warnings=0` a warning still fails the build; the distinction only
+marks these as the rules most likely to deserve an inline, explained
+disable in a test. Nothing else is
 relaxed -- and never the architectural rules, because a test importing a
 repository from a controller test is usually the first sign the production
 code is about to.
@@ -168,7 +200,7 @@ code is about to.
 ESLint sees one file at a time; the module graph needs its own check.
 
 ```js
-// .dependency-cruiser.js -- forbidden rules
+// .dependency-cruiser.cjs -- forbidden rules (abridged; the file is canonical)
 [
   { name: "no-circular", severity: "error", from: {}, to: { circular: true } },
   { name: "no-service-to-service", severity: "error",
@@ -180,11 +212,22 @@ ESLint sees one file at a time; the module graph needs its own check.
     from: { path: "^apps/" },
     to:   { path: "(^packages/db|\\.repository\\.ts$|\\.service\\.ts$)" } },
   { name: "no-deep-package-import", severity: "error",
-    from: { path: "^(services|apps)/" },
-    to:   { path: "^packages/[^/]+/src/(?!index)" } },
-  { name: "no-orphans", severity: "warn", from: { orphan: true }, to: {} },
+    from: { path: "^(services|apps|sdks)/" },
+    to:   { path: "^packages/[^/]+/src/", dependencyTypes: ["local"] } },
+  { name: "not-to-unresolvable", severity: "error",
+    from: {}, to: { couldNotResolve: true } },
 ]
 ```
+
+`no-deep-package-import` matches only *relative* paths into a package: an
+import by package name is already limited to the package's `exports` map
+(including declared subpaths such as `@image-delivery/storage-adapter/s3`),
+and a non-exported one fails to resolve. `no-orphans` is not enabled: under
+zero tolerance a warning-level rule is either an error or noise, and a
+freshly scaffolded package is legitimately orphaned.
+
+`pnpm deps:check` runs `scripts/deps-check.mjs`, which cruises every
+workspace root that exists (`apps/` and `sdks/` arrive in later phases).
 
 `no-app-to-internals` is what keeps the dashboard an honest client of the
 public API (see [`02-PROJECT-STRUCTURE.md`](./02-PROJECT-STRUCTURE.md)).
@@ -193,7 +236,11 @@ contract rather than a convention.
 
 ## Prettier
 
-Prettier owns all formatting, and nobody discusses it in review.
+Prettier owns all formatting of code and config, and nobody discusses it in
+review. It does **not** format Markdown (`.prettierignore`): re-aligning
+every table across the 300+ specification documents would bury real spec
+changes in whitespace diffs. Markdown line endings and final newlines are
+still governed by `.editorconfig` and `.gitattributes`.
 
 ```jsonc
 {
@@ -218,13 +265,18 @@ conflict to manage because no formatting rule is enabled in the first place.
 
 - **pre-commit** -- `lint-staged`: Prettier and ESLint `--fix` on staged
   files only. Fast, so it does not train people to use `--no-verify`.
-- **commit-msg** -- validates the `P{phase}-{seq}: <summary>` subject from
-  `TASKS/00-TASK-CONVENTIONS.md`. A commit that cannot be traced to a task
-  loses the join key the whole plan is built on.
+- **commit-msg** -- `scripts/commit-msg.mjs` validates the
+  `P{phase}-{seq}: <summary>` subject from `TASKS/00-TASK-CONVENTIONS.md`
+  (also `fix:` / `chore:` / `docs:` for work outside a task, `wip:` for
+  branch-local commits that are squashed away, and git's own Merge/Revert
+  subjects). A commit that cannot be traced to a task loses the join key the
+  whole plan is built on. Tested in `tools/tests/commit-msg.test.ts`.
 - **pre-push** -- `typecheck` only. Full tests belong in CI; a slow pre-push
   hook gets bypassed.
 
-Hooks are a convenience. CI is the gate, and CI never trusts that a hook ran.
+Hooks are installed by `simple-git-hooks` on `pnpm install` (`prepare`) and
+configured in the root `package.json`. They are a convenience. CI is the
+gate, and CI never trusts that a hook ran.
 
 ## CI pipeline
 
@@ -232,13 +284,17 @@ Per `docs/DEVOPS/02-CI-CD.md`; the ordering principle is fail fast, cheapest
 first:
 
 1. install (frozen lockfile)
-2. `format:check`, `lint`, `typecheck`, `deps:check` -- in parallel
+2. `format:check`, `lint`, `typecheck`, `deps:check` -- sequential steps of
+   the `verify` job, cheapest first
 3. unit tests
-4. integration tests (Testcontainers: Postgres, Redis, MinIO)
-5. coverage thresholds
-6. the conformance and golden-vector suites
-7. `audit` + secret scan (`P0-10`)
-8. build
+4. build
+5. integration tests (Testcontainers: Postgres, Redis, MinIO) **with the
+   coverage thresholds**, in one run, in the `integration` job after
+   `verify` -- the thresholds are over unit + integration together
+6. the conformance and golden-vector suites (added by the tasks that
+   write them)
+7. `audit` + secret scan: the `security` job, in parallel with `verify`
+   (`P0-10`)
 
 Every step is required. A step that can be skipped on a red build is not a
 gate, and `TASKS/00-TASK-CONVENTIONS.md` does not permit "I'll fix it later"
@@ -261,13 +317,13 @@ the time a commit happens.
 
 ## Open Questions
 
-- The exact HTTP framework name in the `*.service.ts` restriction is filled
-  in by `P0-08`.
+- Resolved: the HTTP framework in the `*.service.ts` restriction is
+  `fastify` (`P0-08`, ADR-020).
 - Whether the `:id`-route isolation-test gate (doc 09, suite 1) is
   implemented as a lint rule here or as a runtime router check is decided in
   `P1-06`.
-- `P0-10` picks the secret-scanning and dependency-audit tools; step 7 above
-  is the slot they occupy.
+- Resolved: `P0-10` picked `pnpm audit` and gitleaks (plus CodeQL); see
+  `docs/DEVOPS/02-CI-CD.md`.
 
 ## Related Documents
 

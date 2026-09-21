@@ -1,8 +1,9 @@
 // Kysely 0.29 moved the migrator to its own entry point.
-import type { Kysely } from "kysely";
 import { Migrator, type MigrationResultSet } from "kysely/migration";
 
 import { MIGRATIONS } from "./migrations";
+
+import type { Kysely } from "kysely";
 
 const migratorFor = <DB>(db: Kysely<DB>): Migrator =>
   new Migrator({
@@ -20,7 +21,9 @@ const unwrap = (result: MigrationResultSet): MigrationOutcome => {
     throw new Error(`migration ${failed ?? "(unknown)"} failed`, { cause: result.error });
   }
   return {
-    applied: (result.results ?? []).filter((r) => r.status === "Success").map((r) => r.migrationName),
+    applied: (result.results ?? [])
+      .filter((r) => r.status === "Success")
+      .map((r) => r.migrationName),
   };
 };
 

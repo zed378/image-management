@@ -3,12 +3,16 @@ import { Readable, Transform, type TransformCallback } from "node:stream";
 import type { ObjectBody } from "./types";
 
 export const toReadable = (body: ObjectBody): Readable =>
-  body instanceof Readable ? body : Readable.from(Buffer.from(body.buffer, body.byteOffset, body.byteLength));
+  body instanceof Readable
+    ? body
+    : Readable.from(Buffer.from(body.buffer, body.byteOffset, body.byteLength));
 
 export const toBuffer = async (body: ObjectBody): Promise<Buffer> => {
-  if (!(body instanceof Readable)) return Buffer.from(body.buffer, body.byteOffset, body.byteLength);
+  if (!(body instanceof Readable))
+    return Buffer.from(body.buffer, body.byteOffset, body.byteLength);
   const chunks: Buffer[] = [];
-  for await (const chunk of body) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
+  for await (const chunk of body)
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
   return Buffer.concat(chunks);
 };
 
@@ -22,7 +26,8 @@ export class ByteCounter extends Transform {
   }
 }
 
-export const clampListLimit = (limit: number | undefined): number => Math.min(Math.max(limit ?? 1000, 1), 1000);
+export const clampListLimit = (limit: number | undefined): number =>
+  Math.min(Math.max(limit ?? 1000, 1), 1000);
 
 /**
  * Paginate an in-memory, sorted key list with an opaque cursor. Used by the
@@ -41,5 +46,8 @@ export const paginateSorted = <T extends { key: string }>(
   const page = sorted.slice(from, from + limit);
   const more = from + limit < sorted.length;
   const last = page.at(-1);
-  return { page, nextCursor: more && last ? Buffer.from(last.key, "utf8").toString("base64url") : null };
+  return {
+    page,
+    nextCursor: more && last ? Buffer.from(last.key, "utf8").toString("base64url") : null,
+  };
 };

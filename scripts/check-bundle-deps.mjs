@@ -43,7 +43,10 @@ for (const service of readdirSync(path.join(root, "services"))) {
     failed = true;
     console.error(
       `services/${service}: the bundle imports packages that are not direct dependencies:\n` +
-        [...missing].sort().map((m) => `  - ${m}`).join("\n") +
+        [...missing]
+          .sort()
+          .map((m) => `  - ${m}`)
+          .join("\n") +
         `\n  Add them to services/${service}/package.json "dependencies".`,
     );
   } else {

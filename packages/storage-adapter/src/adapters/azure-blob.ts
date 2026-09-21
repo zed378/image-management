@@ -1,5 +1,3 @@
-import type { Readable } from "node:stream";
-
 import {
   BlobSASPermissions,
   BlobServiceClient,
@@ -8,11 +6,13 @@ import {
   generateBlobSASQueryParameters,
   type BlobItem,
   type ContainerClient,
+  type ListBlobsFlatSegmentResponse,
 } from "@azure/storage-blob";
 
 import { clampListLimit, toReadable } from "../body";
 import { StorageNotFoundError, StorageUnavailableError } from "../errors";
 import { validateObjectKey, validatePrefix } from "../keys";
+
 import type {
   GetResult,
   ListOptions,
@@ -25,6 +25,7 @@ import type {
   PutOptions,
   StorageAdapter,
 } from "../types";
+import type { Readable } from "node:stream";
 
 // Azure Blob Storage, which has no S3 API. Presigned URLs are Shared Access
 // Signatures, which require the account key (a managed-identity deployment
@@ -39,6 +40,12 @@ export type AzureBlobStorageOptions = {
   readonly endpoint?: string | undefined;
 };
 
+// The SDK default (4 tries, 4 s base delay) holds every request for ~16 s
+// during an outage. Match the S3 SDK's standard mode instead -- 3 attempts,
+// 100 ms base -- so an outage surfaces in well under a second and the caller
+// (a readiness probe, a request with its own deadline) decides what next.
+const AZURE_RETRY = { maxTries: 3, retryDelayInMs: 100, maxRetryDelayInMs: 1_000 } as const;
+
 const isNotFound = (err: unknown): boolean => err instanceof RestError && err.statusCode === 404;
 
 export class AzureBlobStorageAdapter implements StorageAdapter {
@@ -50,7 +57,9 @@ export class AzureBlobStorageAdapter implements StorageAdapter {
   constructor(options: AzureBlobStorageOptions) {
     this.credential = new StorageSharedKeyCredential(options.accountName, options.accountKey);
     const endpoint = options.endpoint ?? `https://${options.accountName}.blob.core.windows.net`;
-    this.container = new BlobServiceClient(endpoint, this.credential).getContainerClient(options.container);
+    this.container = new BlobServiceClient(endpoint, this.credential, {
+      retryOptions: AZURE_RETRY,
+    }).getContainerClient(options.container);
   }
 
   private wrap(err: unknown, action: string, key: string): never {
@@ -85,7 +94,8 @@ export class AzureBlobStorageAdapter implements StorageAdapter {
     validateObjectKey(key);
     try {
       const res = await this.container.getBlobClient(key).download();
-      if (!res.readableStreamBody) throw new StorageUnavailableError(`azure get returned no body for ${key}`);
+      if (!res.readableStreamBody)
+        throw new StorageUnavailableError(`azure get returned no body for ${key}`);
       return {
         body: res.readableStreamBody as Readable,
         info: {
@@ -147,8 +157,10 @@ export class AzureBlobStorageAdapter implements StorageAdapter {
           ...(options.cursor ? { continuationToken: options.cursor } : {}),
         })
         .next();
-      const segment = page.value;
-      if (page.done || !segment) return { objects: [], nextCursor: null };
+      // A finished iterator's value is typed `any` (TReturn); check done first
+      // so `segment` is the typed page.
+      if (page.done === true) return { objects: [], nextCursor: null };
+      const segment: ListBlobsFlatSegmentResponse = page.value;
       return {
         objects: segment.segment.blobItems.map((b: BlobItem) => ({
           key: b.name,
@@ -163,7 +175,12 @@ export class AzureBlobStorageAdapter implements StorageAdapter {
     }
   }
 
-  private sasUrl(key: string, permissions: string, expiresInSeconds: number, contentType?: string): string {
+  private sasUrl(
+    key: string,
+    permissions: string,
+    expiresInSeconds: number,
+    contentType?: string,
+  ): string {
     const blob = this.container.getBlobClient(key);
     const sas = generateBlobSASQueryParameters(
       {

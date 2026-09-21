@@ -1,7 +1,7 @@
-import type { StorageConfig } from "@image-delivery/config";
-
 import { LocalFileSystemAdapter } from "./adapters/local";
+
 import type { StorageAdapter } from "./types";
+import type { StorageConfig } from "@image-delivery/config";
 
 /**
  * Build the adapter the configuration names -- the only place a provider is

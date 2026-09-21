@@ -1,12 +1,12 @@
 import { randomBytes } from "node:crypto";
 import path from "node:path/posix";
-import type { Readable } from "node:stream";
 
 import { createClient, type FileStat, type WebDAVClient } from "webdav";
 
 import { clampListLimit, paginateSorted, toBuffer } from "../body";
 import { StorageCapabilityError, StorageNotFoundError, StorageUnavailableError } from "../errors";
 import { validateObjectKey, validatePrefix } from "../keys";
+
 import type {
   GetResult,
   ListOptions,
@@ -17,6 +17,7 @@ import type {
   PutOptions,
   StorageAdapter,
 } from "../types";
+import type { Readable } from "node:stream";
 
 // WebDAV (RFC 4918): Nextcloud, ownCloud, Apache mod_dav, nginx dav, most NAS
 // appliances. Same object layout as the filesystem adapters. Writes go to a
@@ -66,7 +67,10 @@ export class WebDavStorageAdapter implements StorageAdapter {
     await this.client.createDirectory(dir, { recursive: true });
     const temp = path.join(dir, `.tmp-${randomBytes(8).toString("hex")}`);
     try {
-      await this.client.putFileContents(temp, data, { overwrite: true, contentLength: data.length });
+      await this.client.putFileContents(temp, data, {
+        overwrite: true,
+        contentLength: data.length,
+      });
       await this.client.moveFile(temp, target, { overwrite: true });
     } catch (err) {
       await this.client.deleteFile(temp).catch(() => undefined);
@@ -80,7 +84,10 @@ export class WebDavStorageAdapter implements StorageAdapter {
     // PUT to WebDAV servers, several of which reject chunked request bodies.
     const bytes = await toBuffer(body);
     try {
-      await this.atomicUpload(this.remoteMeta(key), Buffer.from(JSON.stringify({ contentType: options.contentType })));
+      await this.atomicUpload(
+        this.remoteMeta(key),
+        Buffer.from(JSON.stringify({ contentType: options.contentType })),
+      );
       await this.atomicUpload(target, bytes);
     } catch (err) {
       throw new StorageUnavailableError(`webdav put failed for ${key}`, { cause: err });
@@ -119,7 +126,8 @@ export class WebDavStorageAdapter implements StorageAdapter {
         (await this.client.getFileContents(meta, { format: "text" })) as string,
       ) as Sidecar;
     } catch (err) {
-      if (statusOf(err) !== 404) throw new StorageUnavailableError(`webdav meta read failed for ${key}`, { cause: err });
+      if (statusOf(err) !== 404)
+        throw new StorageUnavailableError(`webdav meta read failed for ${key}`, { cause: err });
     }
     return {
       key,
@@ -138,14 +146,17 @@ export class WebDavStorageAdapter implements StorageAdapter {
       try {
         await this.client.deleteFile(target);
       } catch (err) {
-        if (statusOf(err) !== 404) throw new StorageUnavailableError(`webdav delete failed for ${key}`, { cause: err });
+        if (statusOf(err) !== 404)
+          throw new StorageUnavailableError(`webdav delete failed for ${key}`, { cause: err });
       }
     }
   }
 
   async copy(sourceKey: string, destinationKey: string): Promise<ObjectInfo> {
     const source = await this.get(sourceKey);
-    return this.put(destinationKey, await toBuffer(source.body), { contentType: source.info.contentType });
+    return this.put(destinationKey, await toBuffer(source.body), {
+      contentType: source.info.contentType,
+    });
   }
 
   async list(prefix: string, options: ListOptions = {}): Promise<ListResult> {
@@ -157,7 +168,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
     const walk = async (dir: string, keyPrefix: string): Promise<void> => {
       let entries: FileStat[];
       try {
-        entries = (await this.client.getDirectoryContents(dir)) as FileStat[];
+        entries = await this.client.getDirectoryContents(dir);
       } catch (err) {
         if (statusOf(err) === 404) return;
         throw new StorageUnavailableError("webdav list failed", { cause: err });
@@ -175,16 +186,24 @@ export class WebDavStorageAdapter implements StorageAdapter {
       const info = await this.stat(key);
       if (info) infos.push(info);
     }
-    const { page, nextCursor } = paginateSorted(infos, options.cursor, clampListLimit(options.limit));
+    const { page, nextCursor } = paginateSorted(
+      infos,
+      options.cursor,
+      clampListLimit(options.limit),
+    );
     return { objects: page, nextCursor };
   }
 
   presignPut(): Promise<PresignedUrl> {
-    return Promise.reject(new StorageCapabilityError("webdav has no native presign; use withProxyPresign"));
+    return Promise.reject(
+      new StorageCapabilityError("webdav has no native presign; use withProxyPresign"),
+    );
   }
 
   presignGet(): Promise<PresignedUrl> {
-    return Promise.reject(new StorageCapabilityError("webdav has no native presign; use withProxyPresign"));
+    return Promise.reject(
+      new StorageCapabilityError("webdav has no native presign; use withProxyPresign"),
+    );
   }
 
   async close(): Promise<void> {}

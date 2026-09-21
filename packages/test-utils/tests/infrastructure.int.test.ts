@@ -12,7 +12,9 @@ const reachable = (host: string, port: number): Promise<boolean> =>
       socket.end();
       resolve(true);
     });
-    socket.once("error", () => resolve(false));
+    socket.once("error", () => {
+      resolve(false);
+    });
     socket.once("timeout", () => {
       socket.destroy();
       resolve(false);

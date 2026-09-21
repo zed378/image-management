@@ -22,13 +22,22 @@ const REQUIRED = {
 // --check-config validates and exits, so a valid configuration does not leave
 // a server listening.
 const boot = (service: "api" | "worker", env: Record<string, string>) =>
-  spawnSync(process.execPath, ["--import", tsxLoader, path.join(repoRoot, "services", service, "src", "server.ts"), "--check-config"], {
-    // A throwaway cwd so a developer's own .env can never satisfy the test.
-    cwd: mkdtempSync(path.join(tmpdir(), "boot-test-")),
-    env: { PATH: process.env["PATH"] ?? "", SYSTEMROOT: process.env["SYSTEMROOT"] ?? "", ...env },
-    encoding: "utf8",
-    timeout: 60_000,
-  });
+  spawnSync(
+    process.execPath,
+    [
+      "--import",
+      tsxLoader,
+      path.join(repoRoot, "services", service, "src", "server.ts"),
+      "--check-config",
+    ],
+    {
+      // A throwaway cwd so a developer's own .env can never satisfy the test.
+      cwd: mkdtempSync(path.join(tmpdir(), "boot-test-")),
+      env: { PATH: process.env["PATH"] ?? "", SYSTEMROOT: process.env["SYSTEMROOT"] ?? "", ...env },
+      encoding: "utf8",
+      timeout: 60_000,
+    },
+  );
 
 // Spawning a TypeScript entry point is slow on Windows; allow for it.
 describe.each(["api", "worker"] as const)("%s service boot", { timeout: 60_000 }, (service) => {
@@ -41,7 +50,7 @@ describe.each(["api", "worker"] as const)("%s service boot", { timeout: 60_000 }
 
   it.each(Object.keys(REQUIRED))("refuses to start without %s, naming it", (variable) => {
     const env: Record<string, string> = { ...REQUIRED };
-    delete env[variable];
+    Reflect.deleteProperty(env, variable);
 
     const result = boot(service, env);
 

@@ -6,7 +6,11 @@ import type { ColumnType, Generated } from "kysely";
 
 /** Read as Date; written as Date or ISO string; optional on insert when defaulted. */
 export type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
-export type NullableTimestamp = ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+export type NullableTimestamp = ColumnType<
+  Date | null,
+  Date | string | null | undefined,
+  Date | string | null
+>;
 /** jsonb read as a parsed value, written as a JSON string or value. */
 export type Json<T> = ColumnType<T, T | string | undefined, T | string>;
 

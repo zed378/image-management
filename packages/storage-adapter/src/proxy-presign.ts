@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { StorageTokenError } from "./errors";
 import { validateObjectKey } from "./keys";
+
 import type {
   GetResult,
   ListOptions,
@@ -93,7 +94,10 @@ export const verifyProxyToken = (
  * the provider supports them, platform-proxied URLs otherwise. Every other
  * operation is delegated unchanged.
  */
-export const withProxyPresign = (adapter: StorageAdapter, options: ProxyPresignOptions): StorageAdapter => {
+export const withProxyPresign = (
+  adapter: StorageAdapter,
+  options: ProxyPresignOptions,
+): StorageAdapter => {
   if (Buffer.byteLength(options.secret, "utf8") < 32) {
     throw new Error("proxy presign secret must be at least 32 bytes");
   }
@@ -112,8 +116,10 @@ export const withProxyPresign = (adapter: StorageAdapter, options: ProxyPresignO
     stat: (key: string): Promise<ObjectInfo | null> => adapter.stat(key),
     exists: (key: string): Promise<boolean> => adapter.exists(key),
     delete: (key: string): Promise<void> => adapter.delete(key),
-    copy: (sourceKey: string, destinationKey: string): Promise<ObjectInfo> => adapter.copy(sourceKey, destinationKey),
-    list: (prefix: string, listOptions?: ListOptions): Promise<ListResult> => adapter.list(prefix, listOptions),
+    copy: (sourceKey: string, destinationKey: string): Promise<ObjectInfo> =>
+      adapter.copy(sourceKey, destinationKey),
+    list: (prefix: string, listOptions?: ListOptions): Promise<ListResult> =>
+      adapter.list(prefix, listOptions),
     close: (): Promise<void> => adapter.close(),
 
     presignPut: async (key: string, o: PresignPutOptions): Promise<PresignedUrl> => {

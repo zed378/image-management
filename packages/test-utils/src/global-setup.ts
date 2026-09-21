@@ -7,6 +7,7 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
 import { GenericContainer, Wait, type StartedTestContainer } from "testcontainers";
+
 import type { TestProject } from "vitest/node";
 
 import "./provided-context";
@@ -38,8 +39,13 @@ export const startMinio = async (): Promise<StartedTestContainer> => {
   // Create the bucket with the mc binary shipped inside the MinIO image, so
   // test setup needs no S3 SDK outside packages/storage-adapter (ADR-001).
   const alias = await container.exec([
-    "mc", "alias", "set", "local", "http://127.0.0.1:9000",
-    TEST_MINIO.accessKeyId, TEST_MINIO.secretAccessKey,
+    "mc",
+    "alias",
+    "set",
+    "local",
+    "http://127.0.0.1:9000",
+    TEST_MINIO.accessKeyId,
+    TEST_MINIO.secretAccessKey,
   ]);
   if (alias.exitCode !== 0) throw new Error(`mc alias failed: ${alias.output}`);
   const mb = await container.exec(["mc", "mb", "--ignore-existing", `local/${TEST_MINIO.bucket}`]);
@@ -49,16 +55,19 @@ export const startMinio = async (): Promise<StartedTestContainer> => {
 };
 
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  const [postgres, redis, minio]: [StartedPostgreSqlContainer, StartedRedisContainer, StartedTestContainer] =
-    await Promise.all([
-      new PostgreSqlContainer(TEST_IMAGES.postgres)
-        .withDatabase("image_delivery_test")
-        .withUsername("image_delivery")
-        .withPassword("image_delivery_test")
-        .start(),
-      new RedisContainer(TEST_IMAGES.redis).start(),
-      startMinio(),
-    ]);
+  const [postgres, redis, minio]: [
+    StartedPostgreSqlContainer,
+    StartedRedisContainer,
+    StartedTestContainer,
+  ] = await Promise.all([
+    new PostgreSqlContainer(TEST_IMAGES.postgres)
+      .withDatabase("image_delivery_test")
+      .withUsername("image_delivery")
+      .withPassword("image_delivery_test")
+      .start(),
+    new RedisContainer(TEST_IMAGES.redis).start(),
+    startMinio(),
+  ]);
 
   project.provide("postgresAdminUrl", postgres.getConnectionUri());
   project.provide("redisUrl", redis.getConnectionUrl());

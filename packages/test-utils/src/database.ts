@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 
-import { createDb, migrateToLatest, type Db } from "@image-delivery/db";
 import pg from "pg";
+
+import { createDb, migrateToLatest, type Db } from "@image-delivery/db";
 
 // One fresh, fully-migrated database per test file. Isolation by database
 // (not by transaction rollback) so tests can exercise real commits, triggers,
@@ -15,7 +16,10 @@ export type TestDatabase = {
   readonly destroy: () => Promise<void>;
 };
 
-const withAdmin = async <T>(adminUrl: string, fn: (client: pg.Client) => Promise<T>): Promise<T> => {
+const withAdmin = async <T>(
+  adminUrl: string,
+  fn: (client: pg.Client) => Promise<T>,
+): Promise<T> => {
   const client = new pg.Client({ connectionString: adminUrl });
   await client.connect();
   try {
@@ -49,7 +53,9 @@ export const createTestDatabase = async (
     name,
     destroy: async () => {
       await db.destroy();
-      await withAdmin(adminUrl, (client) => client.query(`drop database if exists "${name}" with (force)`));
+      await withAdmin(adminUrl, (client) =>
+        client.query(`drop database if exists "${name}" with (force)`),
+      );
     },
   };
 };

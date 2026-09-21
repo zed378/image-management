@@ -53,7 +53,7 @@ describe("parseConfig", () => {
     "fails naming %s when it is missing",
     (variable) => {
       const env: Record<string, string> = { ...validEnv };
-      delete env[variable];
+      Reflect.deleteProperty(env, variable);
 
       const error = configErrorOf(() => parseConfig(schema, env));
 
@@ -72,11 +72,18 @@ describe("parseConfig", () => {
   it("treats an empty string as unset", () => {
     const error = configErrorOf(() => parseConfig(schema, { ...validEnv, DATABASE_URL: "" }));
 
-    expect(error.issues).toContainEqual({ variable: "DATABASE_URL", reason: "is required but not set" });
+    expect(error.issues).toContainEqual({
+      variable: "DATABASE_URL",
+      reason: "is required but not set",
+    });
   });
 
   it("never includes a secret value in the error message", () => {
-    const leaky = { ...validEnv, DATABASE_URL: "mysql://root:s3cr3t-db-password@db/x", LOG_LEVEL: "loud" };
+    const leaky = {
+      ...validEnv,
+      DATABASE_URL: "mysql://root:s3cr3t-db-password@db/x",
+      LOG_LEVEL: "loud",
+    };
 
     const error = configErrorOf(() => parseConfig(schema, leaky));
 
@@ -95,7 +102,9 @@ describe("parseConfig", () => {
   });
 
   it("rejects a non-integer pool size", () => {
-    const error = configErrorOf(() => parseConfig(schema, { ...validEnv, DATABASE_POOL_MAX: "ten" }));
+    const error = configErrorOf(() =>
+      parseConfig(schema, { ...validEnv, DATABASE_POOL_MAX: "ten" }),
+    );
 
     expect(error.issues.map((i) => i.variable)).toContain("DATABASE_POOL_MAX");
   });
@@ -117,11 +126,18 @@ describe("refineStorage", () => {
   it("defaults to local storage under .data/storage outside production", () => {
     const env = { DATABASE_URL: validEnv.DATABASE_URL, REDIS_URL: validEnv.REDIS_URL };
 
-    expect(toStorageConfig(parseConfig(schema, env))).toEqual({ provider: "local", root: ".data/storage" });
+    expect(toStorageConfig(parseConfig(schema, env))).toEqual({
+      provider: "local",
+      root: ".data/storage",
+    });
   });
 
   it("requires an explicit local root in production, so an ephemeral disk is never used silently", () => {
-    const env = { DATABASE_URL: validEnv.DATABASE_URL, REDIS_URL: validEnv.REDIS_URL, NODE_ENV: "production" };
+    const env = {
+      DATABASE_URL: validEnv.DATABASE_URL,
+      REDIS_URL: validEnv.REDIS_URL,
+      NODE_ENV: "production",
+    };
 
     const error = configErrorOf(() => parseConfig(schema, env));
 
@@ -132,17 +148,31 @@ describe("refineStorage", () => {
   });
 
   it("accepts a local root on a mounted network filesystem", () => {
-    const env = { DATABASE_URL: validEnv.DATABASE_URL, REDIS_URL: validEnv.REDIS_URL, STORAGE_LOCAL_ROOT: "/mnt/nfs/images" };
+    const env = {
+      DATABASE_URL: validEnv.DATABASE_URL,
+      REDIS_URL: validEnv.REDIS_URL,
+      STORAGE_LOCAL_ROOT: "/mnt/nfs/images",
+    };
 
-    expect(toStorageConfig(parseConfig(schema, env))).toEqual({ provider: "local", root: "/mnt/nfs/images" });
+    expect(toStorageConfig(parseConfig(schema, env))).toEqual({
+      provider: "local",
+      root: "/mnt/nfs/images",
+    });
   });
 
   it.each([
-    ["azure-blob", ["STORAGE_AZURE_ACCOUNT_NAME", "STORAGE_AZURE_ACCOUNT_KEY", "STORAGE_AZURE_CONTAINER"]],
+    [
+      "azure-blob",
+      ["STORAGE_AZURE_ACCOUNT_NAME", "STORAGE_AZURE_ACCOUNT_KEY", "STORAGE_AZURE_CONTAINER"],
+    ],
     ["sftp", ["STORAGE_SFTP_HOST", "STORAGE_SFTP_USERNAME", "STORAGE_SFTP_PASSWORD"]],
     ["webdav", ["STORAGE_WEBDAV_URL"]],
   ] as const)("requires the %s connection variables", (provider, variables) => {
-    const env = { DATABASE_URL: validEnv.DATABASE_URL, REDIS_URL: validEnv.REDIS_URL, STORAGE_PROVIDER: provider };
+    const env = {
+      DATABASE_URL: validEnv.DATABASE_URL,
+      REDIS_URL: validEnv.REDIS_URL,
+      STORAGE_PROVIDER: provider,
+    };
 
     const error = configErrorOf(() => parseConfig(schema, env));
 
@@ -178,7 +208,94 @@ describe("refineStorage", () => {
 
     const storage = toStorageConfig(parseConfig(schema, env));
 
-    expect(storage).toMatchObject({ provider: "sftp", privateKey: "-----BEGIN KEY-----\nabc\n-----END KEY-----" });
+    expect(storage).toMatchObject({
+      provider: "sftp",
+      privateKey: "-----BEGIN KEY-----\nabc\n-----END KEY-----",
+    });
+  });
+
+  it.each([
+    [
+      "s3",
+      { STORAGE_S3_BUCKET: "images" },
+      {
+        provider: "s3",
+        bucket: "images",
+        region: "us-east-1",
+        endpoint: undefined,
+        forcePathStyle: false,
+        credentials: undefined,
+      },
+    ],
+    [
+      "azure-blob",
+      {
+        STORAGE_AZURE_ACCOUNT_NAME: "acct",
+        STORAGE_AZURE_ACCOUNT_KEY: "key",
+        STORAGE_AZURE_CONTAINER: "images",
+      },
+      {
+        provider: "azure-blob",
+        accountName: "acct",
+        accountKey: "key",
+        container: "images",
+        endpoint: undefined,
+      },
+    ],
+    [
+      "sftp",
+      {
+        STORAGE_SFTP_HOST: "files.example.com",
+        STORAGE_SFTP_USERNAME: "images",
+        STORAGE_SFTP_PASSWORD: "pw",
+      },
+      {
+        provider: "sftp",
+        host: "files.example.com",
+        port: 22,
+        username: "images",
+        password: "pw",
+        privateKey: undefined,
+        root: "/",
+        hostKeySha256: undefined,
+      },
+    ],
+    [
+      "webdav",
+      { STORAGE_WEBDAV_URL: "https://dav.example.com/images" },
+      {
+        provider: "webdav",
+        url: "https://dav.example.com/images",
+        username: undefined,
+        password: undefined,
+        root: "/",
+      },
+    ],
+  ] as const)(
+    "maps a minimal %s configuration with its documented defaults",
+    (provider, vars, expected) => {
+      const env = {
+        DATABASE_URL: validEnv.DATABASE_URL,
+        REDIS_URL: validEnv.REDIS_URL,
+        STORAGE_PROVIDER: provider,
+        ...vars,
+      };
+
+      expect(toStorageConfig(parseConfig(schema, env))).toEqual(expected);
+    },
+  );
+
+  it("accepts an SFTP private key instead of a password", () => {
+    const env = {
+      DATABASE_URL: validEnv.DATABASE_URL,
+      REDIS_URL: validEnv.REDIS_URL,
+      STORAGE_PROVIDER: "sftp",
+      STORAGE_SFTP_HOST: "files.example.com",
+      STORAGE_SFTP_USERNAME: "images",
+      STORAGE_SFTP_PRIVATE_KEY: "key",
+    };
+
+    expect(toStorageConfig(parseConfig(schema, env))).toMatchObject({ password: undefined });
   });
 
   it("rejects a half-configured static credential", () => {

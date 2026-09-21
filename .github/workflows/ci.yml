@@ -31,10 +31,15 @@ jobs:
           cache: pnpm
       - name: install
         run: pnpm install --frozen-lockfile
+      # Static checks first, cheapest first (docs/ENGINEERING/10 "CI pipeline").
+      - name: format
+        run: pnpm format:check
       - name: lint
         run: pnpm lint
       - name: typecheck
         run: pnpm typecheck
+      - name: module boundaries
+        run: pnpm deps:check
       - name: unit tests
         run: pnpm test:unit
       - name: build
@@ -54,8 +59,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-          # No `cache: pnpm`: this job never installs (pnpm audit reads the
-          # lockfile), so there is no store to save and the post step fails.
+          # This job never installs (pnpm audit reads the lockfile), so there
+          # is no store to cache. setup-node v5 enables the package-manager
+          # cache by itself when package.json has `packageManager`; on a cache
+          # miss its post step then fails saving a store that does not exist.
+          package-manager-cache: false
       - name: dependency audit (blocking at high and critical)
         run: pnpm audit --audit-level=high
       - name: dependency audit (full report, informational)
@@ -79,5 +87,8 @@ jobs:
           cache: pnpm
       - name: install
         run: pnpm install --frozen-lockfile
-      - name: integration tests (Testcontainers)
-        run: pnpm test:integration
+      # Unit + integration together, because the coverage thresholds
+      # (docs/ENGINEERING/09, vitest.config.ts) are over both: adapters and
+      # the query layer are covered by integration tests by design.
+      - name: tests with coverage thresholds (Testcontainers)
+        run: pnpm test:coverage

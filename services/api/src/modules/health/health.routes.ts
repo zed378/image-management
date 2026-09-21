@@ -1,6 +1,6 @@
-import type { FastifyInstance } from "fastify";
-
 import { ok, sendError } from "../../http/respond";
+
+import type { FastifyInstance } from "fastify";
 
 // Probes (docs/ARCHITECTURE/04-API-GATEWAY.md). Unauthenticated by design --
 // orchestrators call them -- so they reveal only check names and ok/failing,
@@ -18,7 +18,9 @@ export const READINESS_TIMEOUT_MS = 2_000;
 
 const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
   new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
+    const timer = setTimeout(() => {
+      reject(new Error(`timed out after ${ms} ms`));
+    }, ms);
     promise.then(
       (value) => {
         clearTimeout(timer);
@@ -42,7 +44,9 @@ export const registerHealthRoutes = (
   app.get("/readyz", async (request, reply) => {
     const names = Object.keys(checks);
     const results = await Promise.allSettled(
-      names.map((name) => withTimeout((checks[name] ?? (() => Promise.resolve()))(), READINESS_TIMEOUT_MS)),
+      names.map((name) =>
+        withTimeout((checks[name] ?? (() => Promise.resolve()))(), READINESS_TIMEOUT_MS),
+      ),
     );
     const report: Record<string, "ok" | "failing"> = {};
     const failing: string[] = [];

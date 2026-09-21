@@ -2,17 +2,19 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
 import { createRedisClient, type RedisClient } from "@image-delivery/cache";
 import { createDb, type Db } from "@image-delivery/db";
 import { createLogger } from "@image-delivery/logger";
 import { LocalFileSystemAdapter } from "@image-delivery/storage-adapter";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
-import type { FastifyInstance } from "fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { buildApp } from "../src/app";
 import { readinessChecks } from "../src/readiness";
+
+import type { FastifyInstance } from "fastify";
 
 // P0-08 Definition of Done: /readyz genuinely fails when PostgreSQL or Redis
 // is down -- verified by stopping the real dependency, not by a mock. This
@@ -38,7 +40,9 @@ describe("/readyz against real dependencies", () => {
     });
     redis = createRedisClient(redisContainer.getConnectionUrl(), "readiness-test");
     await redis.connect();
-    const storage = new LocalFileSystemAdapter({ root: mkdtempSync(path.join(tmpdir(), "readyz-")) });
+    const storage = new LocalFileSystemAdapter({
+      root: mkdtempSync(path.join(tmpdir(), "readyz-")),
+    });
     app = await buildApp({
       logger: createLogger({ service: "api", version: "test", level: "silent" }),
       readinessChecks: readinessChecks({ db, redis, storage }),
@@ -46,10 +50,18 @@ describe("/readyz against real dependencies", () => {
   });
 
   afterAll(async () => {
-    await app?.close();
-    await db?.destroy().catch(() => undefined);
-    redis?.disconnect();
-    await Promise.allSettled([postgres?.stop(), redisContainer?.stop()]);
+    // Guarded: beforeAll may have failed before assigning any of these.
+    const started = { app, db, redis, postgres, redisContainer } as Partial<{
+      app: FastifyInstance;
+      db: Db;
+      redis: RedisClient;
+      postgres: StartedPostgreSqlContainer;
+      redisContainer: StartedRedisContainer;
+    }>;
+    await started.app?.close();
+    await started.db?.destroy().catch(() => undefined);
+    started.redis?.disconnect();
+    await Promise.allSettled([started.postgres?.stop(), started.redisContainer?.stop()]);
   });
 
   const readyz = async () => {
@@ -61,7 +73,9 @@ describe("/readyz against real dependencies", () => {
     const { status, body } = await readyz();
 
     expect(status).toBe(200);
-    expect(body).toMatchObject({ data: { checks: { database: "ok", redis: "ok", storage: "ok" } } });
+    expect(body).toMatchObject({
+      data: { checks: { database: "ok", redis: "ok", storage: "ok" } },
+    });
   });
 
   it("reports the database as failing once PostgreSQL is stopped", async () => {

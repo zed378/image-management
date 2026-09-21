@@ -1,8 +1,9 @@
-import { TEST_MINIO } from "@image-delivery/test-utils";
 import { inject } from "vitest";
 
-import { S3StorageAdapter } from "../src/adapters/s3";
+import { TEST_MINIO } from "@image-delivery/test-utils";
+
 import { describeStorageConformance } from "./conformance";
+import { S3StorageAdapter } from "../src/adapters/s3";
 
 // S3-compatible object storage, against a real MinIO (P0-07 step 4). The same
 // adapter serves AWS S3, Cloudflare R2, Wasabi, Backblaze B2, DigitalOcean
@@ -13,6 +14,9 @@ describeStorageConformance("s3-compatible (MinIO)", async () => ({
     region: TEST_MINIO.region,
     endpoint: inject("s3Endpoint"),
     forcePathStyle: true,
-    credentials: { accessKeyId: TEST_MINIO.accessKeyId, secretAccessKey: TEST_MINIO.secretAccessKey },
+    credentials: {
+      accessKeyId: TEST_MINIO.accessKeyId,
+      secretAccessKey: TEST_MINIO.secretAccessKey,
+    },
   }),
 }));

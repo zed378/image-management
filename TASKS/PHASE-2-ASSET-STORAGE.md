@@ -233,9 +233,16 @@ an isolation test per `P1-06`.
 3. Run and document one full restore drill against a non-production
    environment; record the actual time taken against the RTO target in
    `docs/DEVOPS/08-RESTORE.md`.
+4. Raise the storage adapters' branch coverage to the `packages/**` floor
+   (85%) with fault-injection tests per backend (provider error mapping,
+   partial SDK responses), then delete the interim
+   `packages/storage-adapter/src/adapters/*.ts` threshold in
+   `vitest.config.ts` (set by `P0-11`; see `MEMORY/records/P0-11.md`).
 
 **Definition of Done**
 - [ ] The restore drill actually happened (not just described) and its
       result is recorded in `MEMORY/records/P2-11.md`.
+- [ ] `vitest.config.ts` has no interim coverage threshold for the storage
+      adapters; they meet the `packages/**` numbers.
 
 ---

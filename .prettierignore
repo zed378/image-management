@@ -1,0 +1,15 @@
+# Generated or vendored.
+pnpm-lock.yaml
+**/dist/
+**/coverage/
+**/.turbo/
+.data/
+
+# Deliberate lint/graph violations, asserted by tools/tests/.
+tools/tests/fixtures/
+
+# Specification prose (docs/, TASKS/, MEMORY/, root *.md). Prettier would
+# re-align every table and re-wrap every list across 300+ documents,
+# burying real spec changes in whitespace diffs. Markdown is reviewed as
+# text; .editorconfig still governs its line endings and final newline.
+*.md

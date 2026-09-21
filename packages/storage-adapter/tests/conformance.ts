@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { toBuffer } from "../src/body";
 import { StorageKeyError, StorageNotFoundError } from "../src/errors";
 import { verifyProxyToken, withProxyPresign } from "../src/proxy-presign";
+
 import type { StorageAdapter } from "../src/types";
 
 // THE definition of "a supported storage provider" (ADR-001, ADR-021).
@@ -20,7 +21,10 @@ export type ConformanceHarness = {
 
 const PROXY_SECRET = "conformance-proxy-secret-0123456789abcdef";
 
-export const describeStorageConformance = (name: string, setup: () => Promise<ConformanceHarness>): void => {
+export const describeStorageConformance = (
+  name: string,
+  setup: () => Promise<ConformanceHarness>,
+): void => {
   describe(`StorageAdapter conformance: ${name}`, () => {
     let h: ConformanceHarness;
     let adapter: StorageAdapter;
@@ -33,8 +37,9 @@ export const describeStorageConformance = (name: string, setup: () => Promise<Co
     });
     afterAll(async () => {
       // Guarded: if setup itself failed, there is nothing to close.
-      await adapter?.close();
-      await h?.teardown?.();
+      // Declared as always-assigned for the tests' sake; here they may not be.
+      await (adapter as StorageAdapter | undefined)?.close();
+      await (h as ConformanceHarness | undefined)?.teardown?.();
     });
 
     it("round-trips bytes and content type through put/get", async () => {
@@ -53,9 +58,13 @@ export const describeStorageConformance = (name: string, setup: () => Promise<Co
       const key = ns("stream.bin");
       const bytes = randomBytes(3 * 1024 * 1024 + 17);
 
-      await adapter.put(key, Readable.from([bytes.subarray(0, 1_000_000), bytes.subarray(1_000_000)]), {
-        contentType: "application/octet-stream",
-      });
+      await adapter.put(
+        key,
+        Readable.from([bytes.subarray(0, 1_000_000), bytes.subarray(1_000_000)]),
+        {
+          contentType: "application/octet-stream",
+        },
+      );
 
       const got = await adapter.get(key);
       expect(got.info.byteSize).toBe(bytes.length);
@@ -103,7 +112,11 @@ export const describeStorageConformance = (name: string, setup: () => Promise<Co
       await adapter.put(key, Buffer.from("xyz"), { contentType: "image/avif" });
 
       expect(await adapter.exists(key)).toBe(true);
-      expect(await adapter.stat(key)).toMatchObject({ key, byteSize: 3, contentType: "image/avif" });
+      expect(await adapter.stat(key)).toMatchObject({
+        key,
+        byteSize: 3,
+        contentType: "image/avif",
+      });
     });
 
     it("deletes idempotently", async () => {
@@ -125,14 +138,22 @@ export const describeStorageConformance = (name: string, setup: () => Promise<Co
       await adapter.delete(source);
 
       expect(info).toMatchObject({ key: destination, byteSize: 14, contentType: "image/jpeg" });
-      expect((await toBuffer((await adapter.get(destination)).body)).toString()).toBe("original bytes");
+      expect((await toBuffer((await adapter.get(destination)).body)).toString()).toBe(
+        "original bytes",
+      );
     });
 
     it("lists only keys under a prefix, sorted, across every page", async () => {
       const base = ns("list");
-      const keys = Array.from({ length: 7 }, (_, i) => `${base}/item-${String(i).padStart(2, "0")}.jpg`);
-      for (const key of [...keys].reverse()) await adapter.put(key, Buffer.from(key), { contentType: "image/jpeg" });
-      await adapter.put(`${base}-sibling/not-me.jpg`, Buffer.from("x"), { contentType: "image/jpeg" });
+      const keys = Array.from(
+        { length: 7 },
+        (_, i) => `${base}/item-${String(i).padStart(2, "0")}.jpg`,
+      );
+      for (const key of [...keys].reverse())
+        await adapter.put(key, Buffer.from(key), { contentType: "image/jpeg" });
+      await adapter.put(`${base}-sibling/not-me.jpg`, Buffer.from("x"), {
+        contentType: "image/jpeg",
+      });
 
       const seen: string[] = [];
       let cursor: string | undefined;
@@ -164,17 +185,24 @@ export const describeStorageConformance = (name: string, setup: () => Promise<Co
       ["control character", "a/b\u0000.jpg"],
       ["empty key", ""],
     ])("rejects a %s key before touching the backend", async (_case, key) => {
-      await expect(adapter.put(key, Buffer.from("x"), { contentType: "image/jpeg" })).rejects.toBeInstanceOf(
-        StorageKeyError,
-      );
+      await expect(
+        adapter.put(key, Buffer.from("x"), { contentType: "image/jpeg" }),
+      ).rejects.toBeInstanceOf(StorageKeyError);
       await expect(adapter.get(key)).rejects.toBeInstanceOf(StorageKeyError);
     });
 
     describe("presigned URLs", () => {
       it("upload and download through a presigned URL pair", async () => {
-        const presigning = withProxyPresign(adapter, { baseUrl: "https://api.example.test", secret: PROXY_SECRET });
+        const presigning = withProxyPresign(adapter, {
+          baseUrl: "https://api.example.test",
+          secret: PROXY_SECRET,
+        });
         const key = ns("presigned.jpg");
-        const put = await presigning.presignPut(key, { expiresInSeconds: 300, contentType: "image/jpeg", maxBytes: 1024 });
+        const put = await presigning.presignPut(key, {
+          expiresInSeconds: 300,
+          contentType: "image/jpeg",
+          maxBytes: 1024,
+        });
         const get = await presigning.presignGet(key, { expiresInSeconds: 300 });
 
         expect(put.kind).toBe(adapter.capabilities.nativePresign ? "native" : "proxy");
@@ -182,7 +210,11 @@ export const describeStorageConformance = (name: string, setup: () => Promise<Co
         expect(get.method).toBe("GET");
 
         if (put.kind === "native") {
-          const up = await fetch(put.url, { method: "PUT", headers: put.headers, body: Buffer.from("via url") });
+          const up = await fetch(put.url, {
+            method: "PUT",
+            headers: put.headers,
+            body: Buffer.from("via url"),
+          });
           expect(up.ok).toBe(true);
           const down = await fetch(get.url);
           expect(await down.text()).toBe("via url");
@@ -197,7 +229,10 @@ export const describeStorageConformance = (name: string, setup: () => Promise<Co
       });
 
       it("refuses a native URL once expired, or a proxy token past its expiry", async () => {
-        const presigning = withProxyPresign(adapter, { baseUrl: "https://api.example.test", secret: PROXY_SECRET });
+        const presigning = withProxyPresign(adapter, {
+          baseUrl: "https://api.example.test",
+          secret: PROXY_SECRET,
+        });
         const key = ns("expiring.jpg");
         await adapter.put(key, Buffer.from("secret"), { contentType: "image/jpeg" });
 
@@ -208,7 +243,9 @@ export const describeStorageConformance = (name: string, setup: () => Promise<Co
           const res = await fetch(get.url);
           expect(res.status).toBeGreaterThanOrEqual(400);
         } else {
-          expect(() => verifyProxyToken(get.url.split("/").at(-1) ?? "", "GET", PROXY_SECRET)).toThrow(/expired/);
+          expect(() =>
+            verifyProxyToken(get.url.split("/").at(-1) ?? "", "GET", PROXY_SECRET),
+          ).toThrow(/expired/);
         }
       });
     });

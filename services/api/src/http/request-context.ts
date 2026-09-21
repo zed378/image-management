@@ -1,4 +1,10 @@
-import { continueOrStartTrace, formatTraceparent, redactUrl, type TraceContext } from "@image-delivery/logger";
+import {
+  continueOrStartTrace,
+  formatTraceparent,
+  redactUrl,
+  type TraceContext,
+} from "@image-delivery/logger";
+
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 // Per-request correlation (docs/OBSERVABILITY/01, 03):

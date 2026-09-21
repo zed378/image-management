@@ -32,9 +32,11 @@ Ordered cheapest-first, so a failure surfaces as early as possible.
 | Step | Command | Proves |
 |---|---|---|
 | `install` | `pnpm install --frozen-lockfile` | The lockfile matches every `package.json`; nothing resolves differently in CI than locally |
-| `lint` | `pnpm lint` | ESLint with `--max-warnings=0`; a warning is a failure |
+| `format` | `pnpm format:check` | Prettier owns formatting of every code and config file (`.prettierignore` lists what it does not own) |
+| `lint` | `pnpm lint` | ESLint, type-checked, with the architectural rules; `--max-warnings=0`, so a warning is a failure |
 | `typecheck` | `pnpm typecheck` | Every package and service typechecks under `tsconfig.base.json`'s strict flags |
-| `unit tests` | `pnpm test:unit` | The `unit` Vitest project |
+| `module boundaries` | `pnpm deps:check` | dependency-cruiser: no cycles, no service -> service, no package -> service, no app -> internals, no deep package import, nothing unresolvable |
+| `unit tests` | `pnpm test:unit` | The `unit` Vitest project, including `tools/tests/` -- the proof that every lint and graph rule fires on a planted violation |
 | `build` | `pnpm build` | Both deployables bundle |
 
 ### Job `integration` -- blocks merge, runs after `verify`
@@ -42,7 +44,7 @@ Ordered cheapest-first, so a failure surfaces as early as possible.
 | Step | Command | Proves |
 |---|---|---|
 | `install` | `pnpm install --frozen-lockfile` | as above |
-| `integration tests (Testcontainers)` | `pnpm test:integration` | The `integration` Vitest project against real PostgreSQL, Redis, and MinIO started by Testcontainers on the runner's Docker daemon |
+| `tests with coverage thresholds (Testcontainers)` | `pnpm test:coverage` | Both Vitest projects -- `integration` against real PostgreSQL, Redis, and MinIO started by Testcontainers on the runner's Docker daemon -- with the `docs/ENGINEERING/09` coverage thresholds enforced over the combined run |
 
 `integration` depends on `verify` (`needs: verify`) rather than running in
 parallel: it is the slow job, and there is no value in paying for it on a
@@ -77,7 +79,6 @@ that add them:
 
 | Task | Adds |
 |---|---|
-| `P0-11` | `format:check` and `deps:check`; architectural lint rules; coverage thresholds |
 | `P1-06` | The IDOR/BOLA route-coverage gate |
 | `P4-08` | The protocol conformance suite |
 
@@ -88,8 +89,8 @@ locally with the same commands:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build
-pnpm test:integration   # needs a running Docker daemon
+pnpm verify          # format:check, lint, typecheck, deps:check, test:unit, build
+pnpm test:coverage   # unit + integration with thresholds; needs Docker
 ```
 
 A check that only runs in CI gets discovered at the worst moment; a check

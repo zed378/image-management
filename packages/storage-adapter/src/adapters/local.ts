@@ -1,12 +1,27 @@
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readdir, readFile, rename, rm, stat as fsStat, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat as fsStat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 
 import { ByteCounter, clampListLimit, paginateSorted, toReadable } from "../body";
-import { StorageCapabilityError, StorageKeyError, StorageNotFoundError, StorageUnavailableError } from "../errors";
+import {
+  StorageCapabilityError,
+  StorageKeyError,
+  StorageNotFoundError,
+  StorageUnavailableError,
+} from "../errors";
 import { validateObjectKey, validatePrefix } from "../keys";
+
 import type {
   GetResult,
   ListOptions,
@@ -85,10 +100,18 @@ export class LocalFileSystemAdapter implements StorageAdapter {
   }
 
   private metaPath(key: string): string {
-    return this.contained(path.join(this.root, META_DIR, ...validateObjectKey(key).split("/"))) + ".json";
+    return (
+      this.contained(path.join(this.root, META_DIR, ...validateObjectKey(key).split("/"))) + ".json"
+    );
   }
 
-  /** Defence in depth behind key validation: never touch a path outside root. */
+  /**
+   * Defence in depth behind key validation: never touch a path outside root.
+   * The check is lexical (path.resolve), so it cannot be defeated by a key --
+   * validateObjectKey already refuses `..` -- but it does not follow symlinks.
+   * A symlink inside the root is operator-placed (a mount, a migration aid)
+   * and is trusted; no API writes one.
+   */
   private contained(candidate: string): string {
     const resolved = path.resolve(candidate);
     if (resolved !== this.root && !resolved.startsWith(this.root + path.sep)) {
@@ -97,7 +120,10 @@ export class LocalFileSystemAdapter implements StorageAdapter {
     return resolved;
   }
 
-  private async atomicWrite(target: string, source: NodeJS.ReadableStream | Buffer): Promise<number> {
+  private async atomicWrite(
+    target: string,
+    source: NodeJS.ReadableStream | Buffer,
+  ): Promise<number> {
     await mkdir(path.dirname(target), { recursive: true });
     const temp = path.join(path.dirname(target), `.tmp-${randomBytes(8).toString("hex")}`);
     let bytes: number;
@@ -134,7 +160,10 @@ export class LocalFileSystemAdapter implements StorageAdapter {
       // Sidecar first, object second: the object's rename is the commit point.
       const sidecar: Sidecar = { contentType: options.contentType };
       await this.atomicWrite(this.metaPath(key), Buffer.from(JSON.stringify(sidecar)));
-      const byteSize = await this.atomicWrite(target, Buffer.isBuffer(body) ? body : toReadable(body));
+      const byteSize = await this.atomicWrite(
+        target,
+        Buffer.isBuffer(body) ? body : toReadable(body),
+      );
       const s = await fsStat(target);
       return { key, byteSize, contentType: options.contentType, lastModified: s.mtime };
     } catch (err) {
@@ -199,7 +228,11 @@ export class LocalFileSystemAdapter implements StorageAdapter {
       const info = await this.stat(key);
       if (info) infos.push(info);
     }
-    const { page, nextCursor } = paginateSorted(infos, options.cursor, clampListLimit(options.limit));
+    const { page, nextCursor } = paginateSorted(
+      infos,
+      options.cursor,
+      clampListLimit(options.limit),
+    );
     return { objects: page, nextCursor };
   }
 
@@ -220,11 +253,15 @@ export class LocalFileSystemAdapter implements StorageAdapter {
   }
 
   presignPut(): Promise<PresignedUrl> {
-    return Promise.reject(new StorageCapabilityError("local storage has no native presign; use withProxyPresign"));
+    return Promise.reject(
+      new StorageCapabilityError("local storage has no native presign; use withProxyPresign"),
+    );
   }
 
   presignGet(): Promise<PresignedUrl> {
-    return Promise.reject(new StorageCapabilityError("local storage has no native presign; use withProxyPresign"));
+    return Promise.reject(
+      new StorageCapabilityError("local storage has no native presign; use withProxyPresign"),
+    );
   }
 
   async close(): Promise<void> {}

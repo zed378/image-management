@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 
-import type { z } from "zod";
-
 import { ConfigError, type ConfigIssue } from "./config-error";
+
+import type { z } from "zod";
 
 export type RawEnv = Readonly<Record<string, string | undefined>>;
 

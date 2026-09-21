@@ -1,3 +1,5 @@
+// createHash here fingerprints the server host key, not transformation params.
+// eslint-disable-next-line no-restricted-imports -- see above (ADR-004 is about params hashing)
 import { createHash, randomBytes } from "node:crypto";
 import path from "node:path/posix";
 import { PassThrough, type Readable } from "node:stream";
@@ -7,6 +9,7 @@ import SftpClient from "ssh2-sftp-client";
 import { ByteCounter, clampListLimit, paginateSorted, toBuffer, toReadable } from "../body";
 import { StorageCapabilityError, StorageNotFoundError, StorageUnavailableError } from "../errors";
 import { validateObjectKey, validatePrefix } from "../keys";
+
 import type {
   GetResult,
   ListOptions,
@@ -51,7 +54,11 @@ type Sidecar = { readonly contentType: string };
 
 const isNoSuchFile = (err: unknown): boolean => {
   const e = err as { code?: unknown; message?: unknown } | null;
-  return e?.code === NO_SUCH_FILE || e?.code === "ENOENT" || /no such file/i.test(String(e?.message ?? ""));
+  return (
+    e?.code === NO_SUCH_FILE ||
+    e?.code === "ENOENT" ||
+    (typeof e?.message === "string" && /no such file/i.test(e.message))
+  );
 };
 
 export class SftpStorageAdapter implements StorageAdapter {
@@ -89,7 +96,8 @@ export class SftpStorageAdapter implements StorageAdapter {
         ...(expected
           ? {
               hostVerifier: (key: Buffer): boolean =>
-                createHash("sha256").update(key).digest("base64").replace(/=+$/, "") === expected.replace(/=+$/, ""),
+                createHash("sha256").update(key).digest("base64").replace(/=+$/, "") ===
+                expected.replace(/=+$/, ""),
             }
           : {}),
       });
@@ -113,7 +121,11 @@ export class SftpStorageAdapter implements StorageAdapter {
     return run;
   }
 
-  private async atomicUpload(client: SftpClient, target: string, data: Readable | Buffer): Promise<void> {
+  private async atomicUpload(
+    client: SftpClient,
+    target: string,
+    data: Readable | Buffer,
+  ): Promise<void> {
     const dir = path.dirname(target);
     await client.mkdir(dir, true);
     const temp = path.join(dir, `.tmp-${randomBytes(8).toString("hex")}`);
@@ -135,7 +147,11 @@ export class SftpStorageAdapter implements StorageAdapter {
     const data = Buffer.isBuffer(body) ? body : toReadable(body).pipe(counter);
     try {
       await this.serial(async (client) => {
-        await this.atomicUpload(client, meta, Buffer.from(JSON.stringify({ contentType: options.contentType })));
+        await this.atomicUpload(
+          client,
+          meta,
+          Buffer.from(JSON.stringify({ contentType: options.contentType })),
+        );
         await this.atomicUpload(client, target, data);
       });
     } catch (err) {
@@ -209,7 +225,9 @@ export class SftpStorageAdapter implements StorageAdapter {
 
   async copy(sourceKey: string, destinationKey: string): Promise<ObjectInfo> {
     const source = await this.get(sourceKey);
-    return this.put(destinationKey, await toBuffer(source.body), { contentType: source.info.contentType });
+    return this.put(destinationKey, await toBuffer(source.body), {
+      contentType: source.info.contentType,
+    });
   }
 
   async list(prefix: string, options: ListOptions = {}): Promise<ListResult> {
@@ -232,23 +250,34 @@ export class SftpStorageAdapter implements StorageAdapter {
           else if (entry.type === "-") keys.push(key);
         }
       };
-      await walk(dirPart ? path.join(this.options.root, ...dirPart.split("/")) : this.options.root, dirPart);
+      await walk(
+        dirPart ? path.join(this.options.root, ...dirPart.split("/")) : this.options.root,
+        dirPart,
+      );
     });
     const infos: ObjectInfo[] = [];
     for (const key of keys.filter((k) => k.startsWith(prefix)).sort()) {
       const info = await this.stat(key);
       if (info) infos.push(info);
     }
-    const { page, nextCursor } = paginateSorted(infos, options.cursor, clampListLimit(options.limit));
+    const { page, nextCursor } = paginateSorted(
+      infos,
+      options.cursor,
+      clampListLimit(options.limit),
+    );
     return { objects: page, nextCursor };
   }
 
   presignPut(): Promise<PresignedUrl> {
-    return Promise.reject(new StorageCapabilityError("sftp has no native presign; use withProxyPresign"));
+    return Promise.reject(
+      new StorageCapabilityError("sftp has no native presign; use withProxyPresign"),
+    );
   }
 
   presignGet(): Promise<PresignedUrl> {
-    return Promise.reject(new StorageCapabilityError("sftp has no native presign; use withProxyPresign"));
+    return Promise.reject(
+      new StorageCapabilityError("sftp has no native presign; use withProxyPresign"),
+    );
   }
 
   async close(): Promise<void> {

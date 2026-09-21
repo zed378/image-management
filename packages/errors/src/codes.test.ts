@@ -38,7 +38,12 @@ describe("AppError", () => {
   it("takes its status and retryability from the registry", () => {
     const err = new AppError("asset_not_found");
 
-    expect(err).toMatchObject({ code: "asset_not_found", status: 404, retryable: false, details: [] });
+    expect(err).toMatchObject({
+      code: "asset_not_found",
+      status: 404,
+      retryable: false,
+      details: [],
+    });
     expect(err.message).toBe("No asset with that id exists.");
   });
 
@@ -53,7 +58,9 @@ describe("AppError", () => {
   });
 
   it("never exposes a specific message on a 5xx", () => {
-    const err = new AppError("storage_unavailable", { message: "connect ECONNREFUSED 10.0.3.7:9000" });
+    const err = new AppError("storage_unavailable", {
+      message: "connect ECONNREFUSED 10.0.3.7:9000",
+    });
 
     expect(err.expose).toBe(false);
     expect(err.publicMessage).toBe("Storage is temporarily unavailable.");

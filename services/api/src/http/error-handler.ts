@@ -1,6 +1,8 @@
-import { AppError, errorEnvelope, type ErrorDetail } from "@image-delivery/errors";
-import type { FastifyError, FastifyInstance } from "fastify";
 import { ZodError } from "zod";
+
+import { AppError, errorEnvelope, type ErrorDetail } from "@image-delivery/errors";
+
+import type { FastifyError, FastifyInstance } from "fastify";
 
 // The only place that maps an error to a status code and a body
 // (docs/API/05-ERROR-HANDLING.md, docs/ENGINEERING/06). Rules:
@@ -24,10 +26,15 @@ const ajvDetails = (issues: readonly AjvIssue[]): ErrorDetail[] =>
     const missing = issue.params?.["missingProperty"];
     const additional = issue.params?.["additionalProperty"];
     const path = (issue.instancePath ?? "").replace(/^\//, "").replaceAll("/", ".");
-    const field = [path, typeof missing === "string" ? missing : typeof additional === "string" ? additional : ""]
+    const field = [
+      path,
+      typeof missing === "string" ? missing : typeof additional === "string" ? additional : "",
+    ]
       .filter(Boolean)
       .join(".");
-    return field ? { field, reason: issue.keyword ?? "invalid" } : { reason: issue.keyword ?? "invalid" };
+    return field
+      ? { field, reason: issue.keyword ?? "invalid" }
+      : { reason: issue.keyword ?? "invalid" };
   });
 
 const zodDetails = (err: ZodError): ErrorDetail[] =>
@@ -49,11 +56,12 @@ const FASTIFY_CODES: Readonly<Record<string, ConstructorParameters<typeof AppErr
 
 export const toAppError = (err: unknown): AppError => {
   if (err instanceof AppError) return err;
-  if (err instanceof ZodError) return new AppError("validation_failed", { details: zodDetails(err) });
+  if (err instanceof ZodError)
+    return new AppError("validation_failed", { details: zodDetails(err) });
 
   const fastifyError = err as Partial<FastifyError> | null;
   if (fastifyError?.validation) {
-    return new AppError("validation_failed", { details: ajvDetails(fastifyError.validation as AjvIssue[]) });
+    return new AppError("validation_failed", { details: ajvDetails(fastifyError.validation) });
   }
   const mapped = fastifyError?.code ? FASTIFY_CODES[fastifyError.code] : undefined;
   if (mapped) return new AppError(mapped, { cause: err });

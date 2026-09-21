@@ -1,4 +1,5 @@
 import { ERROR_CODES, type ErrorCode } from "./codes";
+
 import type { ErrorDetail } from "./envelope";
 
 export type AppErrorOptions = {
@@ -27,7 +28,10 @@ export class AppError extends Error {
 
   constructor(code: ErrorCode, options: AppErrorOptions = {}) {
     const spec = ERROR_CODES[code];
-    super(options.message ?? spec.message, options.cause === undefined ? undefined : { cause: options.cause });
+    super(
+      options.message ?? spec.message,
+      options.cause === undefined ? undefined : { cause: options.cause },
+    );
     this.name = "AppError";
     this.code = code;
     this.status = spec.status;

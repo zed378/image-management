@@ -1,7 +1,7 @@
 import { GenericContainer, Wait } from "testcontainers";
 
-import { WebDavStorageAdapter } from "../src/adapters/webdav";
 import { describeStorageConformance } from "./conformance";
+import { WebDavStorageAdapter } from "../src/adapters/webdav";
 
 // WebDAV (RFC 4918), against hacdias/webdav.
 const CONFIG = `

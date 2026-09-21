@@ -1,5 +1,3 @@
-import type { Readable } from "node:stream";
-
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
@@ -15,6 +13,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ByteCounter, clampListLimit, toReadable } from "../body";
 import { StorageNotFoundError, StorageUnavailableError } from "../errors";
 import { validateObjectKey, validatePrefix } from "../keys";
+
 import type {
   GetResult,
   ListOptions,
@@ -27,6 +26,7 @@ import type {
   PutOptions,
   StorageAdapter,
 } from "../types";
+import type { Readable } from "node:stream";
 
 // Any S3-compatible object store: AWS S3, Cloudflare R2, MinIO, Wasabi,
 // Backblaze B2 (S3 API), DigitalOcean Spaces, Ceph RGW, and Google Cloud
@@ -41,7 +41,8 @@ export type S3StorageOptions = {
   /** true for MinIO and most self-hosted stores. */
   readonly forcePathStyle: boolean;
   /** Omit to use the default AWS credential chain (IAM role, env, profile). */
-  readonly credentials?: { readonly accessKeyId: string; readonly secretAccessKey: string } | undefined;
+  readonly credentials?:
+    { readonly accessKeyId: string; readonly secretAccessKey: string } | undefined;
 };
 
 const statusOf = (err: unknown): number | undefined =>
@@ -101,7 +102,14 @@ export class S3StorageAdapter implements StorageAdapter {
       this.wrap(err, "put", key);
     }
     const info = await this.stat(key);
-    return info ?? { key, byteSize: counter.bytes, contentType: options.contentType, lastModified: new Date() };
+    return (
+      info ?? {
+        key,
+        byteSize: counter.bytes,
+        contentType: options.contentType,
+        lastModified: new Date(),
+      }
+    );
   }
 
   async get(key: string): Promise<GetResult> {
@@ -214,9 +222,13 @@ export class S3StorageAdapter implements StorageAdapter {
 
   async presignGet(key: string, options: PresignGetOptions): Promise<PresignedUrl> {
     validateObjectKey(key);
-    const url = await getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
-      expiresIn: options.expiresInSeconds,
-    });
+    const url = await getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      {
+        expiresIn: options.expiresInSeconds,
+      },
+    );
     return {
       url,
       method: "GET",

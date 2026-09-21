@@ -7,4 +7,7 @@ const rows = (Object.keys(ERROR_CODES) as ErrorCode[]).map((code) => {
   const { status, retryable, message } = ERROR_CODES[code];
   return `| \`${code}\` | ${status} | ${retryable ? "yes" : "no"} | ${message} |`;
 });
-process.stdout.write(["| Code | Status | Retryable | Default message |", "|---|---|---|---|", ...rows].join("\n") + "\n");
+process.stdout.write(
+  ["| Code | Status | Retryable | Default message |", "|---|---|---|---|", ...rows].join("\n") +
+    "\n",
+);

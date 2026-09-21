@@ -244,6 +244,16 @@ it("is a no-op when the job is redelivered", async () => {
 | `packages/errors` | **100% branches** |
 | Authorization and signature-verification functions | **100% branches** |
 
+Enforced in `vitest.config.ts` over the **combined** unit + integration run
+(`pnpm test:coverage`, the CI `integration` job): the storage adapters and
+the query layer are covered by integration tests by design. Excluded from
+measurement: process entry points and their env loading
+(`services/*/src/{server,migrate,config}.ts`, exercised by the boot tests
+in a child process that coverage cannot see) and `packages/test-utils`.
+One interim exception is written into the config with its reason: the
+network storage adapters have a 60% branch floor until `P2-11` adds
+per-backend fault injection; the floor only ratchets upward.
+
 Thresholds are a CI gate, and they are a floor. A test that asserts nothing
 meaningful in order to raise a number is worse than no test, because it makes
 the number lie to the next person who trusts it. The three 100% entries are

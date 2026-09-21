@@ -4,7 +4,10 @@ import { errorEnvelope, successEnvelope } from "./envelope";
 
 describe("successEnvelope", () => {
   it("nests data and puts request_id in meta", () => {
-    expect(successEnvelope({ id: "a" }, "r1")).toEqual({ data: { id: "a" }, meta: { request_id: "r1" } });
+    expect(successEnvelope({ id: "a" }, "r1")).toEqual({
+      data: { id: "a" },
+      meta: { request_id: "r1" },
+    });
   });
 
   it("merges extra meta without letting it override request_id", () => {

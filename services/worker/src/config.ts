@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   databaseFragment,
   parseConfig,
@@ -15,7 +17,6 @@ import {
   type RedisConfig,
   type StorageConfig,
 } from "@image-delivery/config";
-import { z } from "zod";
 
 const workerEnvSchema = z
   .object({

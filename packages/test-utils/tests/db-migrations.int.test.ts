@@ -1,7 +1,8 @@
-import { migrateDownOne, migrateToLatest, migrationNames } from "@image-delivery/db";
-import { newId } from "@image-delivery/schema";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+
+import { migrateDownOne, migrateToLatest, migrationNames } from "@image-delivery/db";
+import { newId } from "@image-delivery/schema";
 
 import { createTestDatabase, type TestDatabase } from "../src/database";
 
@@ -87,7 +88,13 @@ describe("tenancy chain schema", () => {
     await expect(
       t.db
         .insertInto("projects")
-        .values({ id: newId(), tenant_id: b.tenantId, application_id: a.applicationId, name: "p", slug: "p" })
+        .values({
+          id: newId(),
+          tenant_id: b.tenantId,
+          application_id: a.applicationId,
+          name: "p",
+          slug: "p",
+        })
         .execute(),
     ).rejects.toThrow(/projects_application_fk/);
   });
@@ -97,16 +104,29 @@ describe("tenancy chain schema", () => {
 
     await t.db
       .insertInto("projects")
-      .values({ id: newId(), tenant_id: a.tenantId, application_id: a.applicationId, name: "p", slug: "p" })
+      .values({
+        id: newId(),
+        tenant_id: a.tenantId,
+        application_id: a.applicationId,
+        name: "p",
+        slug: "p",
+      })
       .execute();
 
-    const rows = await t.db.selectFrom("projects").select(["settings", "status"]).where("tenant_id", "=", a.tenantId).execute();
+    const rows = await t.db
+      .selectFrom("projects")
+      .select(["settings", "status"])
+      .where("tenant_id", "=", a.tenantId)
+      .execute();
     expect(rows).toEqual([{ settings: {}, status: "active" }]);
   });
 
   it("rejects an id that is not a ULID", async () => {
     await expect(
-      t.db.insertInto("tenants").values({ id: "not-a-ulid-at-all-00000000", name: "x", slug: "x" }).execute(),
+      t.db
+        .insertInto("tenants")
+        .values({ id: "not-a-ulid-at-all-00000000", name: "x", slug: "x" })
+        .execute(),
     ).rejects.toThrow(/check constraint/);
   });
 
@@ -119,27 +139,43 @@ describe("tenancy chain schema", () => {
   it("treats user email as case-insensitive and unique", async () => {
     const a = await seedTenant("tenant-d");
     const user = { tenant_id: a.tenantId, display_name: "U", role: "owner" as const };
-    await t.db.insertInto("users").values({ ...user, id: newId(), email: "Ops@Example.com" }).execute();
+    await t.db
+      .insertInto("users")
+      .values({ ...user, id: newId(), email: "Ops@Example.com" })
+      .execute();
 
     await expect(
-      t.db.insertInto("users").values({ ...user, id: newId(), email: "ops@example.com" }).execute(),
+      t.db
+        .insertInto("users")
+        .values({ ...user, id: newId(), email: "ops@example.com" })
+        .execute(),
     ).rejects.toThrow(/users_email_key/);
   });
 
   it("maintains updated_at on update", async () => {
     const { tenantId } = await seedTenant("tenant-e");
-    const before = await t.db.selectFrom("tenants").select("updated_at").where("id", "=", tenantId).executeTakeFirstOrThrow();
+    const before = await t.db
+      .selectFrom("tenants")
+      .select("updated_at")
+      .where("id", "=", tenantId)
+      .executeTakeFirstOrThrow();
     await sql`select pg_sleep(0.01)`.execute(t.db);
 
     await t.db.updateTable("tenants").set({ name: "renamed" }).where("id", "=", tenantId).execute();
 
-    const after = await t.db.selectFrom("tenants").select("updated_at").where("id", "=", tenantId).executeTakeFirstOrThrow();
+    const after = await t.db
+      .selectFrom("tenants")
+      .select("updated_at")
+      .where("id", "=", tenantId)
+      .executeTakeFirstOrThrow();
     expect(after.updated_at.getTime()).toBeGreaterThan(before.updated_at.getTime());
   });
 
   it("refuses to delete a tenant that still owns applications", async () => {
     const { tenantId } = await seedTenant("tenant-f");
 
-    await expect(t.db.deleteFrom("tenants").where("id", "=", tenantId).execute()).rejects.toThrow(/foreign key/);
+    await expect(t.db.deleteFrom("tenants").where("id", "=", tenantId).execute()).rejects.toThrow(
+      /foreign key/,
+    );
   });
 });

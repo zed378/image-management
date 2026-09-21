@@ -30,4 +30,6 @@ if (process.argv.includes("--check-config")) {
   process.exit(0);
 }
 
-process.stderr.write(`worker: configuration valid (${config.process.nodeEnv}); no consumers registered yet\n`);
+process.stderr.write(
+  `worker: configuration valid (${config.process.nodeEnv}); no consumers registered yet\n`,
+);

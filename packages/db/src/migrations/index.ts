@@ -1,6 +1,6 @@
-import type { Migration } from "kysely/migration";
-
 import * as m20260921T0900 from "./20260921T0900_create_tenancy_chain";
+
+import type { Migration } from "kysely/migration";
 
 // Static registry: every migration is imported here, so migrations are part
 // of the bundled deployable and run without a TypeScript toolchain in the

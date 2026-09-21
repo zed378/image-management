@@ -3,6 +3,7 @@ import { Readable } from "node:stream";
 import { clampListLimit, paginateSorted, toBuffer } from "../body";
 import { StorageCapabilityError, StorageNotFoundError } from "../errors";
 import { validateObjectKey, validatePrefix } from "../keys";
+
 import type {
   GetResult,
   ListOptions,
@@ -25,7 +26,12 @@ export class MemoryStorageAdapter implements StorageAdapter {
   async put(key: string, body: ObjectBody, options: PutOptions): Promise<ObjectInfo> {
     validateObjectKey(key);
     const bytes = await toBuffer(body);
-    const info: ObjectInfo = { key, byteSize: bytes.length, contentType: options.contentType, lastModified: new Date() };
+    const info: ObjectInfo = {
+      key,
+      byteSize: bytes.length,
+      contentType: options.contentType,
+      lastModified: new Date(),
+    };
     this.objects.set(key, { bytes, info });
     return info;
   }
@@ -62,7 +68,11 @@ export class MemoryStorageAdapter implements StorageAdapter {
       .map((e) => e.info)
       .filter((i) => i.key.startsWith(prefix))
       .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-    const { page, nextCursor } = paginateSorted(sorted, options.cursor, clampListLimit(options.limit));
+    const { page, nextCursor } = paginateSorted(
+      sorted,
+      options.cursor,
+      clampListLimit(options.limit),
+    );
     return { objects: page, nextCursor };
   }
 

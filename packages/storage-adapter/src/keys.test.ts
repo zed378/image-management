@@ -18,15 +18,21 @@ describe("validateObjectKey", () => {
     expect(() => validateObjectKey("a".repeat(1025))).toThrow(StorageKeyError);
   });
 
-  it.each(["a b.jpg", "a/b?.jpg", "a/b#.jpg", "a/%2e%2e/b", "ä.jpg", "a/nul.txt", "a/LPT1"])("rejects %j", (key) => {
-    expect(() => validateObjectKey(key)).toThrow(StorageKeyError);
-  });
+  it.each(["a b.jpg", "a/b?.jpg", "a/b#.jpg", "a/%2e%2e/b", "ä.jpg", "a/nul.txt", "a/LPT1"])(
+    "rejects %j",
+    (key) => {
+      expect(() => validateObjectKey(key)).toThrow(StorageKeyError);
+    },
+  );
 });
 
 describe("validatePrefix", () => {
-  it.each(["", "tenant/", "tenant/project/derivatives/asset/", "tenant/proj"])("accepts %j", (prefix) => {
-    expect(validatePrefix(prefix)).toBe(prefix);
-  });
+  it.each(["", "tenant/", "tenant/project/derivatives/asset/", "tenant/proj"])(
+    "accepts %j",
+    (prefix) => {
+      expect(validatePrefix(prefix)).toBe(prefix);
+    },
+  );
 
   it.each(["../", "/", "a//", "a/../"])("rejects %j", (prefix) => {
     expect(() => validatePrefix(prefix)).toThrow(StorageKeyError);

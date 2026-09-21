@@ -5,7 +5,11 @@ import { REDACTED } from "./redact";
 
 const SENTINEL = "SENTINEL-SECRET-8f3a91c2";
 
-const capture = (): { logger: Logger; lines: () => Record<string, unknown>[]; raw: () => string } => {
+const capture = (): {
+  logger: Logger;
+  lines: () => Record<string, unknown>[];
+  raw: () => string;
+} => {
   const chunks: string[] = [];
   const logger = createLogger({
     service: "api",
@@ -16,7 +20,12 @@ const capture = (): { logger: Logger; lines: () => Record<string, unknown>[]; ra
   return {
     logger,
     raw: () => chunks.join(""),
-    lines: () => chunks.join("").trim().split("\n").map((l) => JSON.parse(l) as Record<string, unknown>),
+    lines: () =>
+      chunks
+        .join("")
+        .trim()
+        .split("\n")
+        .map((l) => JSON.parse(l) as Record<string, unknown>),
   };
 };
 
@@ -102,7 +111,11 @@ describe("redaction", () => {
 
     logger.info({ asset_id: "a1", params_hash: "abc", object_key: "t/p/originals/a1" }, "event");
 
-    expect(lines()[0]).toMatchObject({ asset_id: "a1", params_hash: "abc", object_key: "t/p/originals/a1" });
+    expect(lines()[0]).toMatchObject({
+      asset_id: "a1",
+      params_hash: "abc",
+      object_key: "t/p/originals/a1",
+    });
   });
 
   it("documents its limit: a secret two levels deep is NOT redacted", () => {

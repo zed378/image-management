@@ -1,7 +1,7 @@
 import { GenericContainer, Wait } from "testcontainers";
 
-import { SftpStorageAdapter } from "../src/adapters/sftp";
 import { describeStorageConformance } from "./conformance";
+import { SftpStorageAdapter } from "../src/adapters/sftp";
 
 // SFTP over SSH, against an OpenSSH server (atmoz/sftp). The user is chrooted
 // into its home directory, so the writable directory is /upload.

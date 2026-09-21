@@ -46,11 +46,13 @@ const logger = createLogger({
 const db = createDb({
   ...config.database,
   applicationName: "api",
-  onPoolError: (err) => logger.warn({ err }, "idle database connection lost"),
+  onPoolError: (err) => {
+    logger.warn({ err }, "idle database connection lost");
+  },
 });
-const redis = createRedisClient(config.redis.url, "api", (err) =>
-  logger.warn({ err }, "redis connection error"),
-);
+const redis = createRedisClient(config.redis.url, "api", (err) => {
+  logger.warn({ err }, "redis connection error");
+});
 const storage = await createStorageAdapter(config.storage);
 
 const app = await buildApp({ logger, readinessChecks: readinessChecks({ db, redis, storage }) });

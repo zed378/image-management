@@ -106,7 +106,8 @@ type StorageEnv = {
 /** Cross-field rules the flat fragment cannot express on its own. */
 export const refineStorage = (env: StorageEnv, ctx: z.RefinementCtx): void => {
   const requireVar = (variable: keyof StorageEnv, when: string): void => {
-    if (!env[variable]) ctx.addIssue({ code: "custom", path: [variable], message: `is required when ${when}` });
+    if (!env[variable])
+      ctx.addIssue({ code: "custom", path: [variable], message: `is required when ${when}` });
   };
   const production = env.NODE_ENV === "production";
 
@@ -115,7 +116,8 @@ export const refineStorage = (env: StorageEnv, ctx: z.RefinementCtx): void => {
       // A container writing to its own ephemeral filesystem loses every
       // original on restart. Production must name the (persistent, and for
       // more than one host, shared) directory explicitly.
-      if (production) requireVar("STORAGE_LOCAL_ROOT", "STORAGE_PROVIDER=local and NODE_ENV=production");
+      if (production)
+        requireVar("STORAGE_LOCAL_ROOT", "STORAGE_PROVIDER=local and NODE_ENV=production");
       break;
     case "s3":
       requireVar("STORAGE_S3_BUCKET", "STORAGE_PROVIDER=s3");
@@ -135,7 +137,8 @@ export const refineStorage = (env: StorageEnv, ctx: z.RefinementCtx): void => {
           message: "or STORAGE_SFTP_PRIVATE_KEY is required when STORAGE_PROVIDER=sftp",
         });
       }
-      if (production) requireVar("STORAGE_SFTP_HOST_KEY_SHA256", "STORAGE_PROVIDER=sftp and NODE_ENV=production");
+      if (production)
+        requireVar("STORAGE_SFTP_HOST_KEY_SHA256", "STORAGE_PROVIDER=sftp and NODE_ENV=production");
       break;
     case "webdav":
       requireVar("STORAGE_WEBDAV_URL", "STORAGE_PROVIDER=webdav");
@@ -147,7 +150,9 @@ export const refineStorage = (env: StorageEnv, ctx: z.RefinementCtx): void => {
   if (Boolean(env.STORAGE_S3_ACCESS_KEY_ID) !== Boolean(env.STORAGE_S3_SECRET_ACCESS_KEY)) {
     ctx.addIssue({
       code: "custom",
-      path: [env.STORAGE_S3_ACCESS_KEY_ID ? "STORAGE_S3_SECRET_ACCESS_KEY" : "STORAGE_S3_ACCESS_KEY_ID"],
+      path: [
+        env.STORAGE_S3_ACCESS_KEY_ID ? "STORAGE_S3_SECRET_ACCESS_KEY" : "STORAGE_S3_ACCESS_KEY_ID",
+      ],
       message: "must be set together with its pair, or both omitted to use an IAM role",
     });
   }
@@ -179,7 +184,8 @@ export type StorageConfig =
       readonly region: string;
       readonly endpoint: string | undefined;
       readonly forcePathStyle: boolean;
-      readonly credentials: { readonly accessKeyId: string; readonly secretAccessKey: string } | undefined;
+      readonly credentials:
+        { readonly accessKeyId: string; readonly secretAccessKey: string } | undefined;
     }
   | {
       readonly provider: "azure-blob";
@@ -243,7 +249,10 @@ export const toStorageConfig = (env: StorageEnv): StorageConfig => {
         forcePathStyle: env.STORAGE_S3_FORCE_PATH_STYLE ?? false,
         credentials:
           env.STORAGE_S3_ACCESS_KEY_ID && env.STORAGE_S3_SECRET_ACCESS_KEY
-            ? { accessKeyId: env.STORAGE_S3_ACCESS_KEY_ID, secretAccessKey: env.STORAGE_S3_SECRET_ACCESS_KEY }
+            ? {
+                accessKeyId: env.STORAGE_S3_ACCESS_KEY_ID,
+                secretAccessKey: env.STORAGE_S3_SECRET_ACCESS_KEY,
+              }
             : undefined,
       };
     case "azure-blob":

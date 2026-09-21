@@ -1,9 +1,9 @@
-import type { RedisClient } from "@image-delivery/cache";
-import type { Db } from "@image-delivery/db";
-import type { StorageAdapter } from "@image-delivery/storage-adapter";
 import { sql } from "kysely";
 
 import type { ReadinessCheck } from "./modules/health/health.routes";
+import type { RedisClient } from "@image-delivery/cache";
+import type { Db } from "@image-delivery/db";
+import type { StorageAdapter } from "@image-delivery/storage-adapter";
 
 /** A valid key that is never written; stat() on it proves the backend answers. */
 export const STORAGE_PROBE_KEY = "health/readiness-probe";
@@ -21,8 +21,7 @@ export const readinessChecks = (deps: {
     await sql`select 1`.execute(deps.db);
   },
   redis: async () => {
-    const reply = await deps.redis.ping();
-    if (reply !== "PONG") throw new Error("unexpected ping reply");
+    await deps.redis.ping();
   },
   storage: async () => {
     await deps.storage.stat(STORAGE_PROBE_KEY);

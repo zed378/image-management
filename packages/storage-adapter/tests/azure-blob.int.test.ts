@@ -1,14 +1,15 @@
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 import { GenericContainer, Wait } from "testcontainers";
 
-import { AzureBlobStorageAdapter } from "../src/adapters/azure-blob";
 import { describeStorageConformance } from "./conformance";
+import { AzureBlobStorageAdapter } from "../src/adapters/azure-blob";
 
 // Azure Blob Storage, against Azurite (Microsoft's official emulator). The
 // account name and key are Azurite's published, well-known development
 // credentials -- not a secret.
 const ACCOUNT = "devstoreaccount1";
-const KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
+const KEY =
+  "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
 const CONTAINER = "image-delivery-test";
 
 describeStorageConformance("azure-blob (Azurite)", async () => {
@@ -23,7 +24,12 @@ describeStorageConformance("azure-blob (Azurite)", async () => {
     .createIfNotExists();
 
   return {
-    adapter: new AzureBlobStorageAdapter({ accountName: ACCOUNT, accountKey: KEY, container: CONTAINER, endpoint }),
+    adapter: new AzureBlobStorageAdapter({
+      accountName: ACCOUNT,
+      accountKey: KEY,
+      container: CONTAINER,
+      endpoint,
+    }),
     teardown: async () => {
       await azurite.stop();
     },

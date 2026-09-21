@@ -79,7 +79,7 @@ that add them:
 
 | Task | Adds |
 |---|---|
-| `P1-06` | The IDOR/BOLA route-coverage gate |
+| `P1-06` (done) | The IDOR/BOLA route-coverage gate: `isolation-gate.test.ts` runs in `unit tests`; the isolation suite in the `integration` job (`docs/TESTING/08`) |
 | `P4-08` | The protocol conformance suite |
 
 ## Local parity

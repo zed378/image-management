@@ -27,6 +27,8 @@ export type AppOptions = {
   readonly authFailures?: FailureLimiter;
   /** Extra /v1 routes, registered after authentication (tests). */
   readonly registerExtraRoutes?: (v1: FastifyInstance) => void;
+  /** Observes every route as it registers (the P1-06 route-table gate). */
+  readonly onRoute?: (route: { readonly method: string; readonly url: string }) => void;
 };
 
 export const API_VERSION_PREFIX = "/v1";
@@ -57,6 +59,13 @@ export const buildApp = async (options: AppOptions): Promise<FastifyInstance> =>
     // 1 MiB for JSON bodies; uploads use multipart or presigned URLs.
     bodyLimit: 1024 * 1024,
   });
+
+  if (options.onRoute) {
+    const observe = options.onRoute;
+    app.addHook("onRoute", (route) => {
+      for (const method of [route.method].flat()) observe({ method, url: route.url });
+    });
+  }
 
   registerRequestContext(app);
   registerErrorHandler(app);

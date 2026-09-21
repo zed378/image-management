@@ -59,9 +59,7 @@ export const registerHealthRoutes = (
       return sendError(
         request,
         reply,
-        503,
         "service_unavailable",
-        "One or more dependencies are unavailable.",
         failing.map((name) => ({ field: name, reason: "failing" })),
       );
     }

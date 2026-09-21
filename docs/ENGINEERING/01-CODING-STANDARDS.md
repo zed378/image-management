@@ -123,7 +123,8 @@ Multi-word modules keep the kebab: `asset-version.service.ts`, not
 - **Module-level constants** -- `UPPER_SNAKE_CASE`: `MAX_UPLOAD_BYTES`,
   `DEFAULT_PAGE_SIZE`, `SIGNED_URL_MAX_TTL_SECONDS`.
 - **Const objects used as enums** -- `UPPER_SNAKE_CASE` name, `UPPER_SNAKE_CASE`
-  keys, `as const`: `ASSET_STATUS.READY`, `ERROR_CODES.ASSET_NOT_FOUND`.
+  keys, `as const`: `ASSET_STATUS.READY`. (Exception: the error registry is keyed by the
+  wire code itself, `ERROR_CODES.asset_not_found`, so the key *is* the contract.)
 - **Zod schemas** -- `<thing>Schema` in `camelCase`:
   `createAssetBodySchema`, `assetIdParamSchema`, `deliveryQuerySchema`.
 - **Type inferred from a schema** -- same name in `PascalCase`:
@@ -274,7 +275,7 @@ export type AssetId = Brand<string, "AssetId">;
 export type DerivativeId = Brand<string, "DerivativeId">;
 
 export const toAssetId = (raw: string): AssetId => {
-  if (!isUlid(raw)) throw new BadRequestError(ERROR_CODES.INVALID_ID);
+  if (!isUlid(raw)) throw new AppError("invalid_id");
   return raw as AssetId;
 };
 ```
@@ -543,7 +544,7 @@ controller, a worker, a CLI, or a test, with no HTTP anywhere in sight.
 ```ts
 // asset.service.ts
 import type { TenantContext } from "@image-delivery/tenancy";
-import { ConflictError, NotFoundError, ERROR_CODES } from "@image-delivery/errors";
+import { AppError } from "@image-delivery/errors";
 import { logger } from "@image-delivery/logger";
 
 import * as assetRepository from "./asset.repository.js";
@@ -565,7 +566,7 @@ export const createAsset = async (
   return assetRepository.withTransaction(ctx, async (tx) => {
     if (input.folder_id) {
       const folder = await folderRepository.findById(ctx, input.folder_id, tx);
-      if (!folder) throw new NotFoundError(ERROR_CODES.FOLDER_NOT_FOUND);
+      if (!folder) throw new AppError("folder_not_found");
     }
 
     const existing = input.idempotencyKey
@@ -589,7 +590,7 @@ export const getAsset = async (ctx: TenantContext, assetId: AssetId): Promise<As
 
   // Absent and foreign are deliberately indistinguishable to the caller:
   // docs/SECURITY/11-IDOR-BOLA-PREVENTION.md.
-  if (!asset) throw new NotFoundError(ERROR_CODES.ASSET_NOT_FOUND);
+  if (!asset) throw new AppError("asset_not_found");
 
   return asset;
 };
@@ -705,7 +706,7 @@ construction, so a forgotten `where` clause is not expressible.
 - A repository MUST NOT: contain business rules, throw HTTP-shaped errors,
   call another repository, enqueue jobs, or open its own transaction. It
   accepts an optional `tx` and uses it when given.
-- `find*` returns `T | null`. It never throws `NotFoundError` -- "absent" is
+- `find*` returns `T | null`. It never throws a not-found `AppError` -- "absent" is
   a fact, "404" is a decision, and the decision belongs to the service.
 - Cross-tenant reads (admin tooling, the tenant-provisioning path) use an
   explicitly named escape hatch -- `unsafeUnscoped(reason)` -- which logs the
@@ -820,65 +821,21 @@ one function decides it.
 
 ## 12. Error Handling
 
-### The hierarchy
+### The error type
+
+One class, `AppError`, whose status and retryability come from the code's
+entry in the registry (`packages/errors/src/codes.ts`) -- so a code can never
+be thrown with the wrong status. The full v1 taxonomy, generated from the
+registry, is in `docs/API/05-ERROR-HANDLING.md`; the contract is in
+[`06-ERROR-RESPONSE-STANDARDS.md`](./06-ERROR-RESPONSE-STANDARDS.md).
 
 ```ts
-// packages/errors/src/app-error.ts
-export abstract class AppError extends Error {
-  abstract readonly status: number;
-  abstract readonly code: ErrorCode;
-  readonly details: readonly ErrorDetail[];
-  readonly expose: boolean = true; // may the message reach the client?
-
-  constructor(code: ErrorCode, opts: AppErrorOptions = {}) { ... }
-}
-
-export class BadRequestError extends AppError { readonly status = 400; }
-export class UnauthorizedError extends AppError { readonly status = 401; }
-export class ForbiddenError extends AppError { readonly status = 403; }
-export class NotFoundError extends AppError { readonly status = 404; }
-export class ConflictError extends AppError { readonly status = 409; }
-export class PayloadTooLargeError extends AppError { readonly status = 413; }
-export class UnsupportedMediaTypeError extends AppError { readonly status = 415; }
-export class UnprocessableError extends AppError { readonly status = 422; }
-export class QuotaExceededError extends AppError { readonly status = 429; }
-export class RateLimitedError extends AppError { readonly status = 429; }
-export class InternalError extends AppError { readonly status = 500; expose = false; }
-export class UpstreamError extends AppError { readonly status = 502; expose = false; }
-```
-
-### The error code registry
-
-```ts
-// packages/errors/src/error-codes.ts
-export const ERROR_CODES = {
-  // 400
-  INVALID_ID: "invalid_id",
-  INVALID_TRANSFORM_PARAM: "invalid_transform_param",
-  // 401 / 403
-  API_KEY_MISSING: "api_key_missing",
-  API_KEY_INVALID: "api_key_invalid",
-  SIGNATURE_INVALID: "signature_invalid",
-  SIGNATURE_EXPIRED: "signature_expired",
-  PERMISSION_DENIED: "permission_denied",
-  // 404
-  ASSET_NOT_FOUND: "asset_not_found",
-  FOLDER_NOT_FOUND: "folder_not_found",
-  DERIVATIVE_NOT_FOUND: "derivative_not_found",
-  // 409 / 413 / 415 / 422
-  IDEMPOTENCY_KEY_REUSED: "idempotency_key_reused",
-  UPLOAD_TOO_LARGE: "upload_too_large",
-  UNSUPPORTED_MEDIA_TYPE: "unsupported_media_type",
-  IMAGE_DECODE_FAILED: "image_decode_failed",
-  // 429
-  QUOTA_EXCEEDED: "quota_exceeded",
-  RATE_LIMITED: "rate_limited",
-  // 5xx
-  INTERNAL: "internal_error",
-  STORAGE_UNAVAILABLE: "storage_unavailable",
-} as const;
-
-export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+throw new AppError("asset_not_found");
+throw new AppError("invalid_transform_param", {
+  message: "Parameter 'w' must be between 1 and 8192.",
+  details: [{ field: "w", reason: "out_of_range" }],
+});
+throw new AppError("storage_unavailable", { cause: err }); // 5xx: generic message to the client
 ```
 
 ### Rules
@@ -1485,7 +1442,7 @@ describe("AssetService.createAsset", () => {
   it("creates an asset in the caller's project", async () => {});
   it("rejects an upload larger than MAX_UPLOAD_BYTES", async () => {});
   it("returns the existing asset when the idempotency key is reused", async () => {});
-  it("throws NotFoundError when the folder belongs to another tenant", async () => {});
+  it("throws folder_not_found when the folder belongs to another tenant", async () => {});
 });
 ```
 
@@ -1666,7 +1623,7 @@ routes -> controller -> service -> repository -> packages/db
 ### Throwing
 
 ```ts
-throw new NotFoundError(ERROR_CODES.ASSET_NOT_FOUND);
+throw new AppError("asset_not_found");
 ```
 
 ### Responding

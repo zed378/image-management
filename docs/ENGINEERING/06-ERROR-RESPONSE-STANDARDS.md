@@ -19,92 +19,57 @@ stable and identical across every endpoint.
 
 ## The `AppError` contract
 
+As implemented in `packages/errors` (`P0-09`). One class, not a hierarchy:
+status and retryability are **looked up from the code's registry entry**, so
+a code cannot be thrown with the wrong status -- "one code, one status" holds
+by construction rather than by discipline.
+
 ```ts
+// packages/errors/src/codes.ts (excerpt)
+export const ERROR_CODES = {
+  asset_not_found: { status: 404, retryable: false, message: "No asset with that id exists." },
+  rate_limited:    { status: 429, retryable: true,  message: "Too many requests; slow down." },
+  quota_exceeded:  { status: 429, retryable: false, message: "The plan quota for this period is exhausted." },
+  storage_unavailable: { status: 503, retryable: true, message: "Storage is temporarily unavailable." },
+  // ... the full v1 taxonomy: docs/API/05-ERROR-HANDLING.md
+} as const satisfies Record<string, ErrorCodeSpec>;
+
 // packages/errors/src/app-error.ts
-export type ErrorDetail = {
-  readonly field?: string;
-  readonly reason: string;
-};
-
-export type AppErrorOptions = {
-  readonly message?: string;
-  readonly details?: readonly ErrorDetail[];
-  readonly cause?: unknown;
-  readonly retryable?: boolean;
-};
-
-export abstract class AppError extends Error {
-  abstract readonly status: number;
+export class AppError extends Error {
   readonly code: ErrorCode;
+  readonly status: number;        // from the registry
+  readonly retryable: boolean;    // from the registry
   readonly details: readonly ErrorDetail[];
-  readonly retryable: boolean;
-  /** May `message` be sent to the client? False for 5xx and upstream faults. */
-  readonly expose: boolean = true;
-
-  constructor(code: ErrorCode, opts: AppErrorOptions = {}) {
-    super(opts.message ?? defaultMessageFor(code), { cause: opts.cause });
-    this.name = new.target.name;
-    this.code = code;
-    this.details = opts.details ?? [];
-    this.retryable = opts.retryable ?? false;
-    Error.captureStackTrace?.(this, new.target);
-  }
+  readonly expose: boolean;       // false for every 5xx
+  constructor(code: ErrorCode, options?: { message?: string; details?: ErrorDetail[]; cause?: unknown });
+  get publicMessage(): string;    // own message for 4xx, registry default for 5xx
 }
 ```
 
-Every field exists for a reason:
+Throw sites:
+
+```ts
+throw new AppError("asset_not_found");
+throw new AppError("invalid_transform_param", {
+  message: "Parameter 'w' must be between 1 and 8192.",
+  details: [{ field: "w", reason: "out_of_range" }],
+});
+throw new AppError("storage_unavailable", { cause: err }); // cause is logged, never sent
+```
 
 | Field | Consumed by |
 |---|---|
-| `status` | the error middleware, and nothing else |
+| `status` | the error handler, and nothing else |
 | `code` | SDKs and consumer applications, which branch on it |
-| `message` | humans; never parsed |
+| `message` / `publicMessage` | humans; never parsed |
 | `details` | a form or SDK mapping a failure back to a field |
-| `retryable` | job handlers and SDK retry logic, so they need not infer from the status |
-| `expose` | the middleware, deciding whether `message` is safe to send |
+| `retryable` | job handlers and SDK retry logic |
+| `expose` | the handler, deciding whether the message is safe to send |
 
-`defaultMessageFor(code)` means a throw site can be a single line and still
-produce a good message; overriding it is for adding specifics
-(`"Parameter 'w' must be between 1 and 8192."`).
-
-## The subclasses
-
-```ts
-export class BadRequestError extends AppError { readonly status = 400; }
-export class UnauthorizedError extends AppError { readonly status = 401; }
-export class ForbiddenError extends AppError { readonly status = 403; }
-export class NotFoundError extends AppError { readonly status = 404; }
-export class ConflictError extends AppError { readonly status = 409; }
-export class GoneError extends AppError { readonly status = 410; }
-export class PreconditionFailedError extends AppError { readonly status = 412; }
-export class PayloadTooLargeError extends AppError { readonly status = 413; }
-export class UnsupportedMediaTypeError extends AppError { readonly status = 415; }
-export class UnprocessableError extends AppError { readonly status = 422; }
-export class RateLimitedError extends AppError {
-  readonly status = 429;
-  readonly retryable = true;
-}
-export class QuotaExceededError extends AppError { readonly status = 429; }
-export class InternalError extends AppError {
-  readonly status = 500;
-  readonly expose = false;
-}
-export class UpstreamError extends AppError {
-  readonly status = 502;
-  readonly expose = false;
-  readonly retryable = true;
-}
-export class ServiceUnavailableError extends AppError {
-  readonly status = 503;
-  readonly expose = false;
-  readonly retryable = true;
-}
-```
-
-`RateLimitedError` and `QuotaExceededError` share a status but differ in
-`retryable`: a rate limit clears on its own, a monthly quota does not.
-Collapsing them would make every SDK retry a quota failure for the rest of
-the billing period.
+`rate_limited` and `quota_exceeded` share 429 but differ in `retryable`: a
+rate limit clears on its own, a quota does not until the period resets.
+Collapsing them would make every SDK retry a quota failure for the rest of the
+billing period.
 
 ## Error codes
 
@@ -167,56 +132,32 @@ A controller MUST use one of these. A hand-written `res.json({ ... })` is how
 one endpoint ends up without `request_id`, or with `data` at the top level,
 and it is invisible in review because it looks correct locally.
 
-## The error middleware
+## The error handler
 
 The only place that maps an error to a status code and a body.
 
 ```ts
-// error-handler.middleware.ts
-export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
-  const requestId = req.requestId;
-
-  if (err instanceof AppError) {
-    if (err.status >= 500) {
-      logger.error({ err, code: err.code, request_id: requestId }, "request failed");
-    } else {
-      logger.warn({ code: err.code, request_id: requestId }, "request rejected");
-    }
-
-    res.status(err.status).json({
-      error: {
-        code: err.code,
-        message: err.expose ? err.message : defaultMessageFor(err.code),
-        details: err.details,
-        request_id: requestId,
-      },
-    });
-    return;
-  }
-
-  if (err instanceof ZodError) {
-    res.status(400).json({
-      error: {
-        code: ERROR_CODES.VALIDATION_FAILED,
-        message: "The request body or parameters are invalid.",
-        details: err.issues.map(toErrorDetail), // field + reason only
-        request_id: requestId,
-      },
-    });
-    return;
-  }
-
-  // Unknown: assume nothing about it, expose nothing from it.
-  logger.error({ err, request_id: requestId }, "unhandled error");
-  res.status(500).json({
-    error: {
-      code: ERROR_CODES.INTERNAL,
-      message: "An unexpected error occurred.",
-      details: [],
-      request_id: requestId,
-    },
-  });
+// services/api/src/http/error-handler.ts (abridged)
+export const toAppError = (err: unknown): AppError => {
+  if (err instanceof AppError) return err;
+  if (err instanceof ZodError) return new AppError("validation_failed", { details: zodDetails(err) });
+  // route-schema (ajv) failures, FST_ERR_CTP_* framework codes and JSON
+  // syntax errors each map to their registered code; everything else:
+  return new AppError("internal_error", { cause: err });
 };
+
+app.setErrorHandler((err, request, reply) => {
+  const appError = toAppError(err);
+  if (appError.status >= 500) {
+    request.log.error({ err: appError.cause ?? appError, code: appError.code }, "request failed");
+  } else {
+    request.log.warn({ code: appError.code }, "request rejected");
+  }
+  if (appError.retryable && appError.status === 503) reply.header("retry-after", "5");
+  return reply
+    .status(appError.status)
+    .send(errorEnvelope(appError.code, appError.publicMessage, request.id, appError.details));
+});
 ```
 
 Rules:

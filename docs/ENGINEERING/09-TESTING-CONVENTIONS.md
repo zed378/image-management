@@ -45,7 +45,7 @@ describe("AssetService.createAsset", () => {
   it("creates an asset in the caller's project", async () => {});
   it("rejects an upload larger than MAX_UPLOAD_BYTES", async () => {});
   it("returns the existing asset when the idempotency key is reused", async () => {});
-  it("throws NotFoundError when the folder belongs to another tenant", async () => {});
+  it("throws folder_not_found when the folder belongs to another tenant", async () => {});
 });
 
 describe("GET /v1/assets/:assetId", () => {

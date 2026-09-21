@@ -106,7 +106,7 @@ export type Brand<T, B extends string> = T & { readonly [brand]: B };
 ```ts
 // asset.types.ts
 import type { Brand } from "@image-delivery/tenancy";
-import { BadRequestError, ERROR_CODES } from "@image-delivery/errors";
+import { AppError } from "@image-delivery/errors";
 import { isUlid } from "@image-delivery/schema";
 
 export type AssetId = Brand<string, "AssetId">;
@@ -115,7 +115,7 @@ export type DerivativeId = Brand<string, "DerivativeId">;
 
 /** The only sanctioned way to produce an AssetId from untrusted input. */
 export const toAssetId = (raw: string): AssetId => {
-  if (!isUlid(raw)) throw new BadRequestError(ERROR_CODES.INVALID_ID);
+  if (!isUlid(raw)) throw new AppError("invalid_id");
   return raw as AssetId; // sound: validated on the line above
 };
 ```
@@ -162,7 +162,7 @@ Use an exhaustiveness guard at the end of every such `switch`:
 
 ```ts
 const assertNever = (value: never): never => {
-  throw new InternalError(ERROR_CODES.INTERNAL, { cause: `unhandled: ${String(value)}` });
+  throw new AppError("internal", { cause: `unhandled: ${String(value)}` });
 };
 ```
 

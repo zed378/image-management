@@ -21,7 +21,7 @@ Detail: [`TASKS/PHASE-0-FOUNDATION.md`](./PHASE-0-FOUNDATION.md)
 | P0-06 | Core database schema -- tenancy chain | Done | `feat/P0-06-tenancy-schema` | squash | [record](../MEMORY/records/P0-06.md) |
 | P0-07 | Storage abstraction interface + provider adapters | Done | `feat/P0-07-storage-adapters` | squash | [record](../MEMORY/records/P0-07.md) |
 | P0-08 | API Gateway skeleton + health check | Done | `feat/P0-08-api-gateway` | squash | [record](../MEMORY/records/P0-08.md) |
-| P0-09 | Error handling & standard error envelope | Not started | - | - | - |
+| P0-09 | Error handling & standard error envelope | Done | `feat/P0-09-error-handling` | squash | [record](../MEMORY/records/P0-09.md) |
 | P0-10 | Base CI security scan + dependency audit | Not started | - | - | - |
 | P0-11 | Enforce the engineering conventions in tooling | Not started | - | - | - |
 

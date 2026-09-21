@@ -97,7 +97,7 @@ Violates `AGENTS.md`'s hard rules and `TASKS/00-TASK-CONVENTIONS.md`.
 - [ ] Service: no HTTP types, no status codes. Returns domain types, throws
       `AppError`. Owns the transaction boundary.
 - [ ] Repository: `ctx` first, `scoped()` always, mapper on the way out. No
-      rules, no `NotFoundError`, no cross-repository call, no enqueue.
+      rules, no not-found `AppError`, no cross-repository call, no enqueue.
 - [ ] Mapper: pure, and tested.
 - [ ] No `services/* -> services/*` import; no `packages/* -> services/*`
       import; no deep import into a package's internals.

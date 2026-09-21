@@ -2,6 +2,7 @@ import type { Logger } from "@image-delivery/logger";
 import { newId } from "@image-delivery/schema";
 import Fastify, { LogController, type FastifyBaseLogger, type FastifyInstance } from "fastify";
 
+import { registerErrorHandler } from "./http/error-handler";
 import { registerRequestContext } from "./http/request-context";
 import { sendError } from "./http/respond";
 import { registerHealthRoutes, type ReadinessCheck } from "./modules/health/health.routes";
@@ -40,6 +41,7 @@ export const buildApp = async (options: AppOptions): Promise<FastifyInstance> =>
   });
 
   registerRequestContext(app);
+  registerErrorHandler(app);
   registerHealthRoutes(app, options.readinessChecks);
 
   // Every versioned route lives under /v1 (docs/API/04-API-VERSIONING.md).
@@ -47,9 +49,7 @@ export const buildApp = async (options: AppOptions): Promise<FastifyInstance> =>
     // Modules register here as they land (P1-02 onward).
   }, { prefix: API_VERSION_PREFIX });
 
-  app.setNotFoundHandler((request, reply) =>
-    sendError(request, reply, 404, "route_not_found", "No route matches this method and path."),
-  );
+  app.setNotFoundHandler((request, reply) => sendError(request, reply, "route_not_found"));
 
   return app;
 };

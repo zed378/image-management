@@ -75,7 +75,7 @@ for `P0-06`'s choice, and for the `P1-05` task that builds it:
   other than via `@image-delivery/db`).
 - Return domain types via a mapper; never a raw row. A leaked row spreads
   `snake_case` upward and makes a column rename an API break.
-- A repository MUST NOT: hold business rules, throw `NotFoundError`, call
+- A repository MUST NOT: hold business rules, throw a not-found `AppError`, call
   another repository, enqueue a job, invalidate a cache, or open a
   transaction. It accepts `tx?` and uses it when given.
 - `find*` returns `T | null`; `get*` does not exist at this layer.

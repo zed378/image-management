@@ -24,13 +24,13 @@ query-layer syntax is shown through `scoped()` and is independent of the
 
 ```ts
 import type { Brand } from "@image-delivery/tenancy";
-import { BadRequestError, ERROR_CODES } from "@image-delivery/errors";
+import { AppError } from "@image-delivery/errors";
 import { isUlid } from "@image-delivery/schema";
 
 export type FolderId = Brand<string, "FolderId">;
 
 export const toFolderId = (raw: string): FolderId => {
-  if (!isUlid(raw)) throw new BadRequestError(ERROR_CODES.INVALID_ID);
+  if (!isUlid(raw)) throw new AppError("invalid_id");
   return raw as FolderId;
 };
 
@@ -198,14 +198,14 @@ export const insertOne = async (
 ```
 
 Note what the repository does **not** do: no depth check, no name-collision
-decision, no `NotFoundError`. Those are rules, and rules live in the
+decision, no not-found `AppError`. Those are rules, and rules live in the
 service.
 
 ### `folder.service.ts`
 
 ```ts
 import type { TenantContext } from "@image-delivery/tenancy";
-import { ConflictError, NotFoundError, UnprocessableError, ERROR_CODES } from "@image-delivery/errors";
+import { AppError } from "@image-delivery/errors";
 import { logger } from "@image-delivery/logger";
 import { withTransaction } from "@image-delivery/db";
 
@@ -230,19 +230,19 @@ export const createFolder = async (
     if (input.parent_id && !parent) {
       // Absent and foreign-tenant are indistinguishable by design:
       // docs/SECURITY/11-IDOR-BOLA-PREVENTION.md
-      throw new NotFoundError(ERROR_CODES.FOLDER_NOT_FOUND);
+      throw new AppError("folder_not_found");
     }
 
     const path = buildFolderPath(parent, input.name);
 
     if (depthOf(path) > MAX_FOLDER_DEPTH) {
-      throw new UnprocessableError(ERROR_CODES.FOLDER_TOO_DEEP, {
+      throw new AppError("folder_too_deep", {
         details: [{ field: "parent_id", reason: "max_depth_exceeded" }],
       });
     }
 
     const collision = await folderRepository.findByPath(ctx, path, tx);
-    if (collision) throw new ConflictError(ERROR_CODES.FOLDER_ALREADY_EXISTS);
+    if (collision) throw new AppError("folder_already_exists");
 
     const folder = await folderRepository.insertOne(
       ctx,
@@ -260,7 +260,7 @@ export const createFolder = async (
 
 export const getFolder = async (ctx: TenantContext, folderId: FolderId): Promise<Folder> => {
   const folder = await folderRepository.findById(ctx, folderId);
-  if (!folder) throw new NotFoundError(ERROR_CODES.FOLDER_NOT_FOUND);
+  if (!folder) throw new AppError("folder_not_found");
   return folder;
 };
 
@@ -343,7 +343,7 @@ folderRoutes.get(
 // tenant-scope.middleware.ts
 import type { RequestHandler } from "<http-framework>";
 
-import { UnauthorizedError, ERROR_CODES } from "@image-delivery/errors";
+import { AppError } from "@image-delivery/errors";
 import { buildTenantContext } from "@image-delivery/tenancy";
 
 /**
@@ -352,7 +352,7 @@ import { buildTenantContext } from "@image-delivery/tenancy";
  */
 export const tenantScope: RequestHandler = (req, _res, next) => {
   const credential = req.credential;
-  if (!credential) throw new UnauthorizedError(ERROR_CODES.API_KEY_MISSING);
+  if (!credential) throw new AppError("api_key_missing");
 
   req.tenantContext = buildTenantContext({
     tenantId: credential.tenantId,

@@ -48,6 +48,28 @@ Ordered cheapest-first, so a failure surfaces as early as possible.
 parallel: it is the slow job, and there is no value in paying for it on a
 commit that does not typecheck.
 
+### Job `security` -- blocks merge, runs beside `verify`
+
+`docs/SECURITY/00` SEC-OPS-01/02. In parallel with `verify`, not after it: a
+leaked secret should fail fast even on a commit whose code also fails.
+
+| Step | Command | Proves |
+|---|---|---|
+| `dependency audit (blocking at high and critical)` | `pnpm audit --audit-level=high` (`pnpm audit:deps`) | No known high/critical advisory in the installed tree |
+| `dependency audit (full report, informational)` | `pnpm audit \|\| true` | Moderate/low advisories are visible in the log for triage |
+| `secret scan (gitleaks, full history)` | gitleaks `v8.28.0` over every commit, `.gitleaks.toml` (`pnpm scan:secrets`) | No secret anywhere in history; checkout uses `fetch-depth: 0` |
+
+Transitive advisories are fixed with a floor in `pnpm-workspace.yaml`
+`overrides`, each commented with its advisory id and removed once upstream
+ranges exclude the vulnerable versions.
+
+### Workflow `CodeQL` -- code-scanning alerts
+
+`.github/workflows/codeql.yml` (SEC-OPS-03): the `security-and-quality`
+query suite over `javascript-typescript`, on every pull request, every push
+to `main`, and weekly. Findings appear as code-scanning alerts; a new high
+alert is triaged before the next merge.
+
 ### Added by later tasks
 
 These slot into `verify` in fail-fast order and are documented by the tasks
@@ -55,7 +77,6 @@ that add them:
 
 | Task | Adds |
 |---|---|
-| `P0-10` | Dependency audit and secret scan (a separate `security` job) |
 | `P0-11` | `format:check` and `deps:check`; architectural lint rules; coverage thresholds |
 | `P1-06` | The IDOR/BOLA route-coverage gate |
 | `P4-08` | The protocol conformance suite |

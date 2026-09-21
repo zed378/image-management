@@ -40,6 +40,31 @@ jobs:
       - name: build
         run: pnpm build
 
+  # P0-10 (docs/SECURITY/00, SEC-OPS-01/02). Runs beside `verify`, not after
+  # it: a leaked secret should fail fast even when the code also fails.
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # gitleaks scans every commit, not just the tip
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          # No `cache: pnpm`: this job never installs (pnpm audit reads the
+          # lockfile), so there is no store to save and the post step fails.
+      - name: dependency audit (blocking at high and critical)
+        run: pnpm audit --audit-level=high
+      - name: dependency audit (full report, informational)
+        run: pnpm audit || true
+      - name: secret scan (gitleaks, full history)
+        run: >-
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0
+          git /repo --no-banner --redact --config /repo/.gitleaks.toml
+
   integration:
     name: integration
     needs: verify

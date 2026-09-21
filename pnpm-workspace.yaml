@@ -19,3 +19,10 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - dependency-cruiser@18.4.0
+
+# Security floors for transitive dependencies (P0-10, triaged in
+# MEMORY/records/P0-10.md). Remove an entry once every consumer's own range
+# already excludes the vulnerable versions.
+overrides:
+  # GHSA-g7r4-m6w7-qqqr (low; dev server on Windows). Build-time only.
+  esbuild: ">=0.28.1"

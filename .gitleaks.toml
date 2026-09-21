@@ -1,0 +1,17 @@
+# Secret scanning (P0-10, docs/SECURITY/00-SECURITY-REQUIREMENTS.md SEC-OPS-02).
+# The default rule set, plus an allowlist of values that are public by
+# design. Every entry names why it is not a secret; add one only after the
+# triage is recorded in MEMORY/records/. Never allowlist a path.
+title = "image-delivery"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Published, well-known development credentials of local emulators"
+regexes = [
+  # Azurite's documented account key for devstoreaccount1 (Microsoft docs).
+  '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
+  # The throwaway MinIO credentials given to the Testcontainers MinIO.
+  '''test_secret_key_0123456789''',
+]

@@ -1,0 +1,29 @@
+# Static analysis (P0-10, docs/SECURITY/00 SEC-OPS-03). CodeQL's
+# security-and-quality suite over the TypeScript sources; findings land in
+# the repository's code-scanning alerts. Weekly as well as per change, so a
+# new query catches old code.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+      - uses: github/codeql-action/analyze@v3

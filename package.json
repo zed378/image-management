@@ -21,7 +21,9 @@
     "infra:up": "docker compose -f deploy/docker-compose.yml up -d --wait postgres redis minio && docker compose -f deploy/docker-compose.yml run --rm minio-init",
     "infra:down": "docker compose -f deploy/docker-compose.yml down",
     "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build",
-    "db:migrate": "tsx services/api/src/migrate.ts"
+    "db:migrate": "tsx services/api/src/migrate.ts",
+    "audit:deps": "pnpm audit --audit-level=high",
+    "scan:secrets": "docker run --rm -v \"$PWD:/repo\" zricethezav/gitleaks:v8.28.0 git /repo --no-banner --redact --config /repo/.gitleaks.toml"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

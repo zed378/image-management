@@ -1,12 +1,13 @@
 # 11 - Upload API
 
-> Category: **API Contract** (`docs/API/`) &nbsp;|&nbsp; Status: Final (v1 -- direct upload; presigned upload lands in P2-03) &nbsp;|&nbsp; Owner: TBD
+> Category: **API Contract** (`docs/API/`) &nbsp;|&nbsp; Status: Final (v1) &nbsp;|&nbsp; Owner: TBD
 
 ## Purpose
 
 How a client puts an original image into the platform. v1 has two paths:
-**direct** multipart upload through the API (this document, `P2-02`) and
-**presigned** upload straight to storage (`P2-03`, added here when built).
+**direct** multipart upload through the API (`P2-02`) and **presigned** upload
+straight to storage (`P2-03`). Both end at the same place: one `assets` row and
+one ready `asset_versions` row, with the original stored under its own key.
 
 ## Category Mandate
 

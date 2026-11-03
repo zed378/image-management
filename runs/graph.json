@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-10-17T16:12:06.153Z",
+  "last_updated": "2026-11-03T10:01:13.599Z",
   "sources": [
     "README.md",
     "MEMORY\\README.md",
@@ -2759,7 +2759,8 @@
     "CLAUDE.md",
     "AGENTS.md",
     "deploy\\README.md",
-    "packages\\db\\node_modules\\@image-delivery\\schema\\node_modules\\zod\\README.md"
+    "packages\\db\\node_modules\\@image-delivery\\schema\\node_modules\\zod\\README.md",
+    ".agents\\rules\\antigravity-rtk-rules.md"
   ],
   "entities": [
     {
@@ -55060,6 +55061,24 @@
       "source": "deploy\\README.md",
       "line": 49,
       "evidence": "## MinIO image pinning"
+    },
+    {
+      "id": "sec_rtk_rust_token_killer_automation_rule",
+      "name": "RTK (Rust Token Killer) Automation Rule",
+      "type": "Section/Module",
+      "description": "Specification section from .agents\\rules\\antigravity-rtk-rules.md",
+      "source": ".agents\\rules\\antigravity-rtk-rules.md",
+      "line": 1,
+      "evidence": "# RTK (Rust Token Killer) Automation Rule"
+    },
+    {
+      "id": "sec_ecc_context_management_compaction_protocol_upstream_affaan_m_ecc_",
+      "name": "ECC Context Management & Compaction Protocol (Upstream: affaan-m/ECC)",
+      "type": "Section/Module",
+      "description": "Specification section from .agents\\rules\\antigravity-rtk-rules.md",
+      "source": ".agents\\rules\\antigravity-rtk-rules.md",
+      "line": 70,
+      "evidence": "## ECC Context Management & Compaction Protocol (Upstream: affaan-m/ECC)"
     }
   ],
   "relations": [
@@ -62465,8 +62484,8 @@
     }
   ],
   "stats": {
-    "total_sources": 2758,
-    "total_entities": 5811,
+    "total_sources": 2759,
+    "total_entities": 5813,
     "total_relations": 925,
     "token_savings_estimate": "85-95%"
   }

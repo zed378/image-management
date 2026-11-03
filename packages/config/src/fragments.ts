@@ -99,12 +99,28 @@ export const storageFragment = {
   STORAGE_WEBDAV_USERNAME: z.string().min(1).optional(),
   STORAGE_WEBDAV_PASSWORD: z.string().min(1).optional(),
   STORAGE_WEBDAV_ROOT: z.string().min(1).default("/"),
+  /**
+   * HMAC key for proxy presign tokens (P2-03, docs/STORAGE/01). Required when
+   * the configured provider cannot natively presign (local, sftp, webdav).
+   * A deployment secret: rotating it invalidates every outstanding proxy URL.
+   */
+  STORAGE_PROXY_SIGNING_SECRET: z.string().min(32, "must be at least 32 characters").optional(),
+  /** The api's public base URL; proxy presign URLs are issued against it. */
+  PUBLIC_BASE_URL: z.url().optional(),
 };
+
+/** Providers whose adapter sets `capabilities.nativePresign` (`packages/storage-adapter`). */
+export const NATIVE_PRESIGN_PROVIDERS = [
+  "s3",
+  "azure-blob",
+] as const satisfies readonly StorageProviderName[];
 
 type StorageEnv = {
   NODE_ENV?: string | undefined;
   STORAGE_PROVIDER: StorageProviderName;
   STORAGE_LOCAL_ROOT?: string | undefined;
+  STORAGE_PROXY_SIGNING_SECRET?: string | undefined;
+  PUBLIC_BASE_URL?: string | undefined;
   STORAGE_S3_REGION?: string | undefined;
   STORAGE_S3_ENDPOINT?: string | undefined;
   STORAGE_S3_BUCKET?: string | undefined;
@@ -180,6 +196,27 @@ export const refineStorage = (env: StorageEnv, ctx: z.RefinementCtx): void => {
       ],
       message: "must be set together with its pair, or both omitted to use an IAM role",
     });
+  }
+
+  // Presigned uploads (P2-03) work on every provider: natively where the
+  // provider signs, through the api's proxy endpoint where it cannot. The
+  // proxy needs an HMAC key and the URL clients are supposed to reach it on;
+  // without either, the presign flow cannot answer at all.
+  if (!NATIVE_PRESIGN_PROVIDERS.includes(env.STORAGE_PROVIDER as never)) {
+    if (!env.STORAGE_PROXY_SIGNING_SECRET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["STORAGE_PROXY_SIGNING_SECRET"],
+        message: `is required when STORAGE_PROVIDER=${env.STORAGE_PROVIDER} (that provider cannot presign natively)`,
+      });
+    }
+    if (!env.PUBLIC_BASE_URL) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["PUBLIC_BASE_URL"],
+        message: `is required when STORAGE_PROVIDER=${env.STORAGE_PROVIDER} (proxy presign URLs are issued against it)`,
+      });
+    }
   }
 };
 

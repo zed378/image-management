@@ -42,6 +42,10 @@ export type ApiConfig = {
   readonly storage: StorageConfig;
   readonly http: { readonly host: string; readonly port: number };
   readonly credentials: { readonly apiKeyPepper: string };
+  readonly storageProxy: {
+    readonly signingSecret: string | undefined;
+    readonly publicBaseUrl: string | undefined;
+  };
 };
 
 export const loadApiConfig = (env: RawEnv): ApiConfig => {
@@ -53,5 +57,9 @@ export const loadApiConfig = (env: RawEnv): ApiConfig => {
     storage: toStorageConfig(e),
     http: { host: e.HTTP_HOST, port: e.HTTP_PORT },
     credentials: { apiKeyPepper: e.API_KEY_PEPPER },
+    storageProxy: {
+      signingSecret: e.STORAGE_PROXY_SIGNING_SECRET,
+      publicBaseUrl: e.PUBLIC_BASE_URL,
+    },
   };
 };
